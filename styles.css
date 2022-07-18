@@ -1,0 +1,89 @@
+//using mixins partial found here: https://codepen.io/davidicus/pen/550d33fdfbeb78e54c49ad7255686098
+
+///////////////////////////////
+// compass reset /////////////
+/////////////////////////////
+@import "compass/reset";
+
+:root { @include flexType(2, 13, 18) }
+
+body {
+    color: #333;
+    font-family: 'Open Sans',  sans-serif;
+    font-weight: $normal;
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, strong { 
+    //background: rgba(#000, .2);
+    font-weight: $bold; 
+    margin: 0;
+}
+
+h1 { 
+    font-size: 3em;
+    line-height: 1; 
+    margin-bottom: 0.5em;
+    
+    @include bp(600, max-width) {
+        font-size: 1.5em;
+        margin-bottom: .9em;
+        
+    }
+}
+
+h2 {
+    font-size: 2.25em;
+    line-height: 1.333333333; 
+    margin-bottom: 0.666666666em;
+    
+    @include bp(600, max-width) {
+        font-size: 1.3125em;
+        line-height: 1.142857142;
+        margin-bottom: 1.142857142em;
+        
+    }
+}
+
+h3 {
+    font-size: 1.5em;
+    line-height: 1;
+    margin-bottom: .9em;
+    
+    @include bp(600, max-width) {
+        font-size: 1.125em;
+        line-height: 1.333333333;
+        margin-bottom: 1.333333333em;
+        
+    }
+}
+
+p { 
+    font-size: 1em;
+    margin-bottom: 1.5em;
+    
+    @include bp(600, max-width) {
+        font-size: 1em;
+        line-height: 1.5em; 
+        margin-bottom: 1.45em;
+        
+    }
+}
+
+
+
+
+
+
+html {
+    background-image: -webkit-linear-gradient(hsla(0,0%,0%,0) 95%, hsla(0,25%,50%,.5) 95%);
+    background-image:    -moz-linear-gradient(hsla(0,0%,0%,0) 95%, hsla(0,25%,50%,.5) 95%);
+    background-image:     -ms-linear-gradient(hsla(0,0%,0%,0) 95%, hsla(0,25%,50%,.5) 95%);
+    background-image:      -o-linear-gradient(hsla(0,0%,0%,0) 95%, hsla(0,25%,50%,.5) 95%);
+    background-image:         linear-gradient(hsla(0,0%,0%,0) 95%, hsla(0,25%,50%,.5) 95%);
+    background-position: 50% 0;
+    background-size: 1.5em 1.5em;
+    margin: 0;
+    padding: 1.45em 3em; 
+}
