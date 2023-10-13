@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: black; /* Set your desired background color */
+            color: red; /* Set your desired text color */
+            font-family: 'Roboto', sans-serif; /* Use Roboto font */
+        }
+        #counter {
+            font-size: 350px; /* Adjust text size as needed */
+        }
+    </style>
+</head>
+<body>
+    <div id="counter">0</div>
+
+    <script>
+        let counter = 0;
+        const counterElement = document.getElementById('counter');
+
+        window.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowUp') {
+                counter++;
+            } else if (event.key === 'ArrowDown') {
+                counter--;
+            } else if (event.key === '0' || event.key === 'Delete') {
+                counter = 0;
+            }
+
+            counterElement.textContent = counter;
+        });
+    </script>
+</body>
+</html>
