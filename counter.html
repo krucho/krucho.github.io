@@ -6,38 +6,81 @@
     <title>Counter</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             height: 100vh;
-            margin: 0;
-            background-color: black; /* Set your desired background color */
-            color: red; /* Set your desired text color */
-            font-family: 'Roboto', sans-serif; /* Use Roboto font */
+            background-color: #f0f0f0;
         }
-        #counter {
-            font-size: 350px; /* Adjust text size as needed */
+        .counter {
+            font-size: 3em;
+            background: #333;
+            color: #fff;
+            border-radius: 5px;
+            padding: 20px 40px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .controls {
+            text-align: center;
+        }
+        .controls button {
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .slider-container {
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
-    <div id="counter">0</div>
-
+    <div class="counter" id="counter">00000</div>
+    <div class="slider-container">
+        <label for="speedSlider">Speed: </label>
+        <input type="range" id="speedSlider" min="5" max="150" value="8">
+    </div>
+    <div class="controls">
+        <button id="resetButton">Reset</button>
+        <button id="stopButton">Stop</button>
+    </div>
+    
     <script>
-        let counter = 0;
         const counterElement = document.getElementById('counter');
+        let currentNumber = 0;
+        let intervalId;
 
-        window.addEventListener('keydown', function(event) {
-            if (event.key === 'ArrowUp') {
-                counter++;
-            } else if (event.key === 'ArrowDown') {
-                counter--;
-            } else if (event.key === '0' || event.key === 'Delete') {
-                counter = 0;
-            }
+        function updateCounter() {
+            currentNumber = (currentNumber + 1) % 100000;
+            counterElement.textContent = currentNumber.toString().padStart(5, '0');
+        }
 
-            counterElement.textContent = counter;
+        function setSpeed(speed) {
+            if (intervalId) clearInterval(intervalId);
+            const interval = 1000 / speed;
+            intervalId = setInterval(updateCounter, interval);
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', function() {
+            const speed = this.value;
+            setSpeed(speed);
         });
+
+        document.getElementById('resetButton').addEventListener('click', function() {
+            currentNumber = 0;
+            counterElement.textContent = currentNumber.toString().padStart(5, '0');
+            const speed = document.getElementById('speedSlider').value;
+            setSpeed(speed);
+        });
+
+        document.getElementById('stopButton').addEventListener('click', function() {
+            if (intervalId) clearInterval(intervalId);
+        });
+
+        setSpeed(5); 
     </script>
 </body>
 </html>
