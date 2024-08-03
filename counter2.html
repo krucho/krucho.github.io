@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Counter</title>
+    <title>Counter with Variable Speed</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -21,7 +21,7 @@
             border-radius: 5px;
             padding: 20px 40px;
             margin-bottom: 20px;
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Courier New', Courier, monospace; /* Monospace font for fixed-width digits */
         }
         .controls {
             text-align: center;
@@ -32,16 +32,20 @@
             margin: 5px;
             cursor: pointer;
         }
-        .slider-container {
+        .digit-speeds-container {
             margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
     <div class="counter" id="counter">00000</div>
-    <div class="slider-container">
-        <label for="speedSlider">Animation Speed: </label>
-        <input type="range" id="speedSlider" min="1" max="10" value="1" step="0.25">
+    <div class="digit-speeds-container">
+        <label>Digit Speeds:</label>
+        <input type="number" id="digitSpeed0" value="1" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed1" value="2" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed2" value="3" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed3" value="4" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed4" value="5" step="0.1" min="0.1">
     </div>
     <div class="controls">
         <button id="resetButton">Reset</button>
@@ -52,11 +56,10 @@
         const counterElement = document.getElementById('counter');
         let currentNumber = 0;
         let intervalIds = [];
-        let baseSpeed = 1;
         let stopIndex = 0;
 
-        const digitSpeeds = [1, 2, 2.5, 3, 8]; // Custom speed multipliers for each digit
-        
+        let digitSpeeds = [1, 2, 3, 4, 5]; // Custom speed multipliers for each digit
+
         function updateCounter(digitIndex) {
             const numberString = currentNumber.toString().padStart(5, '0').split('');
             numberString[digitIndex] = (parseInt(numberString[digitIndex]) + 1) % 10;
@@ -64,11 +67,17 @@
             counterElement.textContent = numberString.join('');
         }
 
-        function setSpeed(speed) {
+        function setSpeed() {
             clearAllIntervals();
-            baseSpeed = speed;
+            digitSpeeds = [
+                parseFloat(document.getElementById('digitSpeed0').value),
+                parseFloat(document.getElementById('digitSpeed1').value),
+                parseFloat(document.getElementById('digitSpeed2').value),
+                parseFloat(document.getElementById('digitSpeed3').value),
+                parseFloat(document.getElementById('digitSpeed4').value)
+                ];
             for (let i = 0; i < 5; i++) {
-                const interval = 1000 / (baseSpeed * digitSpeeds[i]);
+                const interval = 1000 / digitSpeeds[i];
                 intervalIds[i] = setInterval(() => updateCounter(i), interval);
             }
         }
@@ -77,27 +86,37 @@
             intervalIds.forEach(intervalId => clearInterval(intervalId));
         }
 
-        document.getElementById('speedSlider').addEventListener('input', function() {
-            const speed = this.value;
-            setSpeed(speed);
-        });
-
-        document.getElementById('resetButton').addEventListener('click', function() {
-            currentNumber = 0;
-            counterElement.textContent = currentNumber.toString().padStart(5, '0');
-            const speed = document.getElementById('speedSlider').value;
-            stopIndex = 0;
-            setSpeed(speed);
-        });
-
-        document.getElementById('stopButton').addEventListener('click', function() {
+        function handleStop() {
             if (stopIndex < intervalIds.length) {
                 clearInterval(intervalIds[stopIndex]);
                 stopIndex++;
             }
+        }
+
+        function handleReset() {
+            currentNumber = 0;
+            counterElement.textContent = currentNumber.toString().padStart(5, '0');
+            stopIndex = 0;
+            setSpeed();
+        }
+
+        document.getElementById('resetButton').addEventListener('click', handleReset);
+
+        document.getElementById('stopButton').addEventListener('click', handleStop);
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'a' || event.key === 'A')) {
+                handleStop();
+            };
         });
 
-        setSpeed(1); 
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'b' || event.key === 'B')) {
+                handleReset();
+            };
+        });
+
+        setSpeed(); // Initialize with default speeds
     </script>
 </body>
 </html>
