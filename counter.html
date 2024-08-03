@@ -40,8 +40,8 @@
 <body>
     <div class="counter" id="counter">00000</div>
     <div class="slider-container">
-        <label for="speedSlider">Speed: </label>
-        <input type="range" id="speedSlider" min="5" max="150" value="8">
+        <label for="speedSlider">Animation Speed: </label>
+        <input type="range" id="speedSlider" min="1" max="10" value="1" step="0.25">
     </div>
     <div class="controls">
         <button id="resetButton">Reset</button>
@@ -51,17 +51,30 @@
     <script>
         const counterElement = document.getElementById('counter');
         let currentNumber = 0;
-        let intervalId;
+        let intervalIds = [];
+        let baseSpeed = 1;
+        let stopIndex = 0;
 
-        function updateCounter() {
-            currentNumber = (currentNumber + 1) % 100000;
-            counterElement.textContent = currentNumber.toString().padStart(5, '0');
+        const digitSpeeds = [1, 2, 2.5, 3, 8]; // Custom speed multipliers for each digit
+        
+        function updateCounter(digitIndex) {
+            const numberString = currentNumber.toString().padStart(5, '0').split('');
+            numberString[digitIndex] = (parseInt(numberString[digitIndex]) + 1) % 10;
+            currentNumber = parseInt(numberString.join(''));
+            counterElement.textContent = numberString.join('');
         }
 
         function setSpeed(speed) {
-            if (intervalId) clearInterval(intervalId);
-            const interval = 1000 / speed;
-            intervalId = setInterval(updateCounter, interval);
+            clearAllIntervals();
+            baseSpeed = speed;
+            for (let i = 0; i < 5; i++) {
+                const interval = 1000 / (baseSpeed * digitSpeeds[i]);
+                intervalIds[i] = setInterval(() => updateCounter(i), interval);
+            }
+        }
+
+        function clearAllIntervals() {
+            intervalIds.forEach(intervalId => clearInterval(intervalId));
         }
 
         document.getElementById('speedSlider').addEventListener('input', function() {
@@ -73,14 +86,18 @@
             currentNumber = 0;
             counterElement.textContent = currentNumber.toString().padStart(5, '0');
             const speed = document.getElementById('speedSlider').value;
+            stopIndex = 0;
             setSpeed(speed);
         });
 
         document.getElementById('stopButton').addEventListener('click', function() {
-            if (intervalId) clearInterval(intervalId);
+            if (stopIndex < intervalIds.length) {
+                clearInterval(intervalIds[stopIndex]);
+                stopIndex++;
+            }
         });
 
-        setSpeed(5); 
+        setSpeed(1); 
     </script>
 </body>
 </html>
