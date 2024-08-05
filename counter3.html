@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter with Variable Speed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .counter {
+            font-size: 3em;
+            background: #333;
+            color: #fff;
+            border-radius: 5px;
+            padding: 20px 40px;
+            margin-bottom: 20px;
+            font-family: 'Courier New', Courier, monospace; /* Monospace font for fixed-width digits */
+        }
+        .controls {
+            text-align: center;
+        }
+        .controls button {
+            display: none;
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .digit-speeds-container {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Para jugar: a/A stop - b/B reset</h1>
+    <div class="counter" id="counter">-----</div>
+    <div class="digit-speeds-container">
+        <label>Digit Speeds:</label>
+        <input type="number" id="digitSpeed0" value="1" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed1" value="2" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed2" value="3" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed3" value="4" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed4" value="5" step="0.1" min="0.1">
+    </div>
+    <div class="controls">
+        <button id="resetButton">Reset</button>
+        <button id="stopButton">Stop</button>
+    </div>
+    
+    <script>
+        const counterElement = document.getElementById('counter');
+        let currentNumber = '-----';
+        let intervalIds = [];
+        let stopIndex = 0;
+        const randomStart = true; // Set this to false if you want to start with zeroes instead of random values
+
+        let digitSpeeds = [2, 2, 3, 4, 5]; // Custom speed multipliers for each digit
+        let stopStates = [false, false, false, false, false]; // Track which digits are stopped
+
+        function updateCounter(digitIndex) {
+            let numberString = currentNumber.split('');
+            if (!stopStates[digitIndex]) {
+                if (numberString[digitIndex] === '-') {
+                    numberString[digitIndex] = randomStart ? Math.floor(Math.random() * 10).toString() : '0';
+                } else {
+                    numberString[digitIndex] = (parseInt(numberString[digitIndex]) + 1) % 10;
+                }
+                currentNumber = numberString.join('');
+            }
+            counterElement.textContent = currentNumber;
+        }
+
+        function setSpeed() {
+            clearAllIntervals();
+            digitSpeeds = [
+                parseFloat(document.getElementById('digitSpeed0').value),
+                parseFloat(document.getElementById('digitSpeed1').value),
+                parseFloat(document.getElementById('digitSpeed2').value),
+                parseFloat(document.getElementById('digitSpeed3').value),
+                parseFloat(document.getElementById('digitSpeed4').value)
+            ];
+            
+            if (stopIndex >= 5) return; 
+            
+            const interval = 1000 / digitSpeeds[stopIndex];
+            intervalIds[stopIndex] = setInterval(() => updateCounter(stopIndex), interval);
+        }
+
+        function clearAllIntervals() {
+            intervalIds.forEach(intervalId => clearInterval(intervalId));
+        }
+
+        function handleStop() {
+
+            if (currentNumber[stopIndex] === '-') {
+                console.log("It's a dash");
+                return
+            }
+
+
+            if (stopIndex <= 4) {
+                clearInterval(intervalIds[stopIndex]);
+                stopStates[stopIndex] = true;
+                stopIndex++;
+                setSpeed();
+            }
+        }
+
+        function handleReset() {
+            currentNumber = '-----';
+            stopIndex = 0;
+            stopStates = [false, false, false, false, false];
+            counterElement.textContent = currentNumber;
+            setSpeed();
+        }
+
+        document.getElementById('resetButton').addEventListener('click', handleReset);
+        document.getElementById('stopButton').addEventListener('click', handleStop);
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'a' || event.key === 'A')) {
+                handleStop();
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'b' || event.key === 'B')) {
+                handleReset();
+            }
+        });
+
+        handleReset(); // Initialize with dashes
+    </script>
+</body>
+</html>
