@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter with GSAP</title>
+    <style>
+
+               @font-face {
+    font-family: 'ITCFranklinGothic';
+    src: url('ITCFranklinGothicStd-DmCp.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+        body {
+
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: lightgrey;
+        }
+        .counter {
+            font-size: 3em;
+            background: white;
+            color: black;
+            border-radius: 5px;
+            padding: 20px 20px;
+            margin-bottom: 20px;
+            font-family: 'ITCFranklinGothic', 'Courier New', Courier, monospace;
+            display: flex;
+        }
+        .digit {
+            display: inline-block;
+            overflow: hidden;
+            position: relative;
+            height: 1em;
+            width: 0.8em;
+        }
+        .digit span {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+        .controls {
+            text-align: center;
+        }
+        .controls button {
+            display: none;
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .digit-speeds-container {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Para jugar: a/A stop - b/B reset</h1>
+    <div class="counter" id="counter">
+        <div class="digit"><span>-</span><span>-</span></div>
+        <div class="digit"><span>-</span><span>-</span></div>
+        <div class="digit"><span>-</span><span>-</span></div>
+        <div class="digit"><span>-</span><span>-</span></div>
+        <div class="digit"><span>-</span><span>-</span></div>
+    </div>
+    <div class="digit-speeds-container">
+        <label>Digit Speeds:</label>
+        <input type="number" id="digitSpeed0" value="1" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed1" value="2" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed2" value="3" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed3" value="4" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed4" value="5" step="0.1" min="0.1">
+    </div>
+    <div class="controls">
+        <button id="resetButton">Reset</button>
+        <button id="stopButton">Stop</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.2/gsap.min.js"></script>
+    <script>
+        const counterElement = document.getElementById('counter');
+        let intervalIds = [];
+        let stopIndex = 0;
+        const randomStart = true;
+
+        let digitSpeeds = [2, 2, 3, 4, 5];
+        let stopStates = [false, false, false, false, false];
+
+        function updateCounter(digitIndex) {
+            const digitElement = counterElement.children[digitIndex];
+            const spans = digitElement.querySelectorAll('span');
+            let currentDigit = spans[0].textContent;
+
+            if (!stopStates[digitIndex]) {
+                if (currentDigit === '-') {
+                    currentDigit = randomStart ? Math.floor(Math.random() * 10).toString() : '0';
+                } else {
+                    currentDigit = (parseInt(currentDigit) + 1) % 10;
+                }
+
+                spans[1].textContent = currentDigit;
+                const duration = 1 / digitSpeeds[digitIndex];
+                gsap.fromTo(spans[1], {top: '-100%'}, {top: '0%', duration: duration / 2, ease: 'power2.inOut'});
+                gsap.to(spans[0], {top: '100%', duration: duration / 2, ease: 'power2.inOut', onComplete: () => {
+                    spans[0].textContent = currentDigit;
+                    spans[0].style.top = '0';
+                    spans[1].style.top = '-100%';
+                }});
+            }
+        }
+
+        function setSpeed() {
+            clearAllIntervals();
+            digitSpeeds = [
+                parseFloat(document.getElementById('digitSpeed0').value),
+                parseFloat(document.getElementById('digitSpeed1').value),
+                parseFloat(document.getElementById('digitSpeed2').value),
+                parseFloat(document.getElementById('digitSpeed3').value),
+                parseFloat(document.getElementById('digitSpeed4').value)
+            ];
+
+            if (stopIndex >= 5) return;
+
+            const interval = 1000 / digitSpeeds[stopIndex];
+            intervalIds[stopIndex] = setInterval(() => updateCounter(stopIndex), interval);
+        }
+
+        function clearAllIntervals() {
+            intervalIds.forEach(intervalId => clearInterval(intervalId));
+        }
+
+        function handleStop() {
+            if (stopIndex <= 4) {
+                clearInterval(intervalIds[stopIndex]);
+                stopStates[stopIndex] = true;
+                stopIndex++;
+                setSpeed();
+            }
+        }
+
+        function handleReset() {
+            stopIndex = 0;
+            stopStates = [false, false, false, false, false];
+            Array.from(counterElement.children).forEach(digit => {
+                digit.querySelectorAll('span')[0].textContent = '-';
+                digit.querySelectorAll('span')[1].textContent = '-';
+                digit.querySelectorAll('span')[0].style.top = '0';
+                digit.querySelectorAll('span')[1].style.top = '-100%';
+            });
+            setSpeed();
+        }
+
+        document.getElementById('resetButton').addEventListener('click', handleReset);
+        document.getElementById('stopButton').addEventListener('click', handleStop);
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'a' || event.key === 'A')) {
+                handleStop();
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'b' || event.key === 'B')) {
+                handleReset();
+            }
+        });
+
+        handleReset();
+    </script>
+</body>
+</html>
