@@ -25,7 +25,7 @@
             border: 2px solid #333;
             border-radius: 5px;
             margin: 0 5px;
-            background-color: lightgrey;
+            background-color: white;
         }
         .slot-strip {
             position: absolute;
@@ -76,7 +76,7 @@
     <script>
         const slotStrips = document.querySelectorAll('.slot-strip');
         let stopIndex = 0;
-        let digitSpeeds = [2, 2, 3, 4, 5];
+        let digitSpeeds = [0.5, 2, 3, 4, 5];
 
         function startAnimation(digitIndex) {
             const strip = slotStrips[digitIndex];
@@ -94,6 +94,7 @@
             });
         }
 
+
         function stopAnimation(digitIndex) { 
             const strip = slotStrips[digitIndex];
             gsap.killTweensOf(strip);
@@ -110,6 +111,8 @@
         }
 
         function setSpeed() {
+    updateSpeeds();
+
             if (stopIndex < 5) {
                 startAnimation(stopIndex);
             }
@@ -120,16 +123,27 @@
                 stopAnimation(stopIndex);
                 stopIndex++;
                 setSpeed();
+                setRandomYValueByIndex(stopIndex, -900, -100)
+                //resetStripByIndex(stopIndex);
             }
         }
 
         function handleReset() {
             stopIndex = 0;
-            slotStrips.forEach(strip => gsap.set(strip, { y: -900 }));
+            slotStrips.forEach(strip => gsap.set(strip, { y: -1200 })); // (-900) With -1200 starts empty
             slotStrips.forEach(strip => gsap.killTweensOf(strip));
             setSpeed();
         }
 
+       
+
+function setRandomYValueByIndex(index, minY, maxY) {
+    if (index >= 0 && index < slotStrips.length) {
+        const strip = slotStrips[index];
+        const randomY = Math.floor(Math.random() * (maxY - minY + 1)) + minY;
+        gsap.set(strip, { y: randomY });
+    }
+}
         document.getElementById('resetButton').addEventListener('click', handleReset);
         document.getElementById('stopButton').addEventListener('click', handleStop);
 
@@ -144,6 +158,16 @@
                 handleReset();
             }
         });
+
+
+function updateSpeeds() {
+    digitSpeeds[0] = parseFloat(document.getElementById('digitSpeed0').value);
+    digitSpeeds[1] = parseFloat(document.getElementById('digitSpeed1').value);
+    digitSpeeds[2] = parseFloat(document.getElementById('digitSpeed2').value);
+    digitSpeeds[3] = parseFloat(document.getElementById('digitSpeed3').value);
+    digitSpeeds[4] = parseFloat(document.getElementById('digitSpeed4').value);
+}
+
 
         handleReset(); // Initialize the strips
     </script>
