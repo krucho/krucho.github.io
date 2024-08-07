@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter with Variable Speed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .slot-machine {
+            display: flex;
+        }
+        .digit {
+            position: relative;
+            width: 60px;
+            height: 100px;
+            overflow: hidden;
+            border: 2px solid #333;
+            border-radius: 5px;
+            margin: 0 5px;
+            background-color: lightgrey;
+        }
+        .slot-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1100px; /* 11 digits * 100px each for seamless loop */
+            background: url('digits4.png') no-repeat;
+        }
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .controls button {
+            font-size: 1em;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        .digit-speeds-container {
+            margin-top: 20px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.2/gsap.min.js"></script>
+</head>
+<body>
+    <h1>Para jugar: a/A stop - b/B reset</h1>
+    <div class="slot-machine">
+        <div class="digit" id="digit0"><div class="slot-strip" id="strip0"></div></div>
+        <div class="digit" id="digit1"><div class="slot-strip" id="strip1"></div></div>
+        <div class="digit" id="digit2"><div class="slot-strip" id="strip2"></div></div>
+        <div class="digit" id="digit3"><div class="slot-strip" id="strip3"></div></div>
+        <div class="digit" id="digit4"><div class="slot-strip" id="strip4"></div></div>
+    </div>
+    <div class="digit-speeds-container">
+        <label>Digit Speeds:</label>
+        <input type="number" id="digitSpeed0" value="1" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed1" value="2" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed2" value="3" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed3" value="4" step="0.1" min="0.1">
+        <input type="number" id="digitSpeed4" value="5" step="0.1" min="0.1">
+    </div>
+    <div class="controls">
+        <button id="resetButton">Reset</button>
+        <button id="stopButton">Stop</button>
+    </div>
+    
+    <script>
+        const slotStrips = document.querySelectorAll('.slot-strip');
+        let stopIndex = 0;
+        let digitSpeeds = [2, 2, 3, 4, 5];
+
+        function startAnimation(digitIndex) {
+            const strip = slotStrips[digitIndex];
+            const speed = digitSpeeds[digitIndex];
+            gsap.to(strip, {
+                y: `+=${1000}px`, // Move up 1000px (10 digits * 100px each) + 100px for seamless loop
+                duration: 10 / speed,
+                repeat: -1,
+                ease: "linear",
+                modifiers: {
+                    y: function(y) {
+                        return gsap.utils.wrap(-1000, 0, parseFloat(y)) + "px";
+                    }
+                }
+            });
+        }
+
+        function stopAnimation(digitIndex) { 
+            const strip = slotStrips[digitIndex];
+            gsap.killTweensOf(strip);
+            const topValue = parseFloat(strip.style.transform.split(",")[1]); // extract the y value from transform matrix
+            const finalPosition = Math.round(topValue / 100) * 100;
+            gsap.set(strip, { y: finalPosition });
+            logCurrentDigit(digitIndex, finalPosition);
+        }
+
+        function logCurrentDigit(digitIndex, position) {
+            let digitValue = ((position / 100) + 9) % 10;
+            if (digitValue === -1) digitValue = 9;
+            console.log(`Digit ${digitIndex} is showing: ${digitValue}`);
+        }
+
+        function setSpeed() {
+            if (stopIndex < 5) {
+                startAnimation(stopIndex);
+            }
+        }
+
+        function handleStop() {
+            if (stopIndex <= 4) {
+                stopAnimation(stopIndex);
+                stopIndex++;
+                setSpeed();
+            }
+        }
+
+        function handleReset() {
+            stopIndex = 0;
+            slotStrips.forEach(strip => gsap.set(strip, { y: -900 }));
+            slotStrips.forEach(strip => gsap.killTweensOf(strip));
+            setSpeed();
+        }
+
+        document.getElementById('resetButton').addEventListener('click', handleReset);
+        document.getElementById('stopButton').addEventListener('click', handleStop);
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'a' || event.key === 'A')) {
+                handleStop();
+            }
+        });
+
+        document.addEventListener('keydown', function(event) {
+            if ((event.key === 'b' || event.key === 'B')) {
+                handleReset();
+            }
+        });
+
+        handleReset(); // Initialize the strips
+    </script>
+</body>
+</html>
