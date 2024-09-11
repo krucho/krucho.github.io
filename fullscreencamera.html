@@ -126,10 +126,13 @@
       // Draw the current video frame onto the canvas
       context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-      // Create a download link
+      // Create a download link with a unique filename
+      const timestamp = new Date().toISOString().replace(/[:-]/g, '').replace(/\..+/, ''); // Generates YYYYMMDDTHHmmss
+      const filename = `photo-${timestamp}.png`;
+
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
-      link.download = 'captured_image.png';
+      link.download = filename;
       link.click();
     }
 
