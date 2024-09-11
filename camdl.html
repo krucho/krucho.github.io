@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiple Cameras</title>
+</head>
+<body>
+  <h1>User-Facing Camera</h1>
+  <button onclick="startCamera('userFacingCam', 'user')">Start User-Facing Camera</button>
+  <video id="userFacingCam" width="640" height="480" autoplay></video>
+  <button onclick="captureAndDownload('userFacingCam')">Capture and Download</button>
+  <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+  <h1>Second Webcam</h1>
+  <button onclick="startCamera('webcam2', 'environment')">Start Second Webcam</button>
+  <video id="webcam2" width="640" height="480" autoplay></video>
+
+  <script>
+    function startCamera(videoId, facingMode) {
+      const videoElement = document.getElementById(videoId);
+
+      // Stop any existing stream
+      if (videoElement.srcObject) {
+        videoElement.srcObject.getTracks().forEach(track => track.stop());
+      }
+
+      // Start the camera based on facing mode
+      navigator.mediaDevices.getUserMedia({ video: { facingMode } })
+        .then((stream) => {
+          videoElement.srcObject = stream;
+        })
+        .catch((error) => {
+          console.error(`Error accessing ${facingMode}-facing camera:`, error);
+        });
+    }
+
+    function captureAndDownload(videoId) {
+      const videoElement = document.getElementById(videoId);
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+
+      // Draw the current video frame onto the canvas
+      context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+      // Create a download link
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = 'captured_image.png';
+      link.click();
+    }
+  </script>
+</body>
+</html>
