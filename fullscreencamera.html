@@ -71,7 +71,7 @@
     <video id="userFacingCam" autoplay></video>
     
     <div id="controls">
-      <button onclick="startCameraAndFullscreen('userFacingCam', 'user')">Start Camera & Fullscreen</button>
+      <button onclick="startCamera('userFacingCam', 'user')">Start Camera & Fullscreen</button>
       <button onclick="captureAndDownload('userFacingCam')">Capture and Download</button>
     </div>
 
@@ -93,15 +93,16 @@
       navigator.mediaDevices.getUserMedia({ video: { facingMode } })
         .then((stream) => {
           videoElement.srcObject = stream;
+
+          // After camera access is granted, request full-screen
+          requestFullScreen();
         })
         .catch((error) => {
           console.error(`Error accessing ${facingMode}-facing camera:`, error);
         });
     }
 
-    function startCameraAndFullscreen(videoId, facingMode) {
-      startCamera(videoId, facingMode);
-
+    function requestFullScreen() {
       const videoContainer = document.getElementById('videoContainer');
       if (videoContainer.requestFullscreen) {
         videoContainer.requestFullscreen();
