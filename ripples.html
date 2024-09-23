@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ripple Effects</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #2b0133;
+    }
+
+    /*This is a must, this fixed the Y offset between the ripple and the images*/
+    img { 
+      display: block;
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+
+    .shoe-A {
+      position: absolute;
+      top: 190px;
+      left: 200px;
+      transform: translate(-50%, -50%); 
+    }
+
+
+    .shoe-B {
+      position: absolute;
+      top: 190px;
+      left: 500px;
+      transform: translate(-50%, -50%); 
+    }
+
+
+    .shoe-C {
+      position: absolute;
+      top: 190px;
+      left: 800px;
+      transform: translate(-50%, -50%); 
+    }
+
+
+    .shoe-D {
+      position: absolute;
+      top: 190px;
+      left: 1100px;
+      transform: translate(-50%, -50%); 
+    }
+
+    .rippleA {
+      position: absolute;
+      top: 190px;
+      left: 200px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 7px hsla(0, 0%, 100%, 1);
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      z-index: -1;
+    }
+
+
+    .rippleB1, .rippleB2 {
+      position: absolute;
+      top: 190px;
+      left: 500px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 7px hsla(0, 0%, 100%, 1);
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      z-index: -1;
+    }
+
+
+
+    .rippleC1, .rippleC2 {
+      position: absolute;
+      top: 190px;
+      left: 800px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 3px hsla(0, 0%, 100%, 1);
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      z-index: -1;
+    }
+
+
+    .rippleD {
+      position: absolute;
+      top: 190px;
+      left: 1100px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      z-index: -1;
+    }
+
+
+  </style>
+</head>
+<body>
+
+    <div class="shoe-A">
+      <img src="shoeWithBG.png" alt="Shoe">
+    </div>
+
+    <div class="rippleA"></div>
+ 
+ 
+
+    <div class="shoe-B">
+      <img src="shoeWithBG.png" alt="Shoe">
+    </div>
+
+    <div class="rippleB1"></div>
+    <div class="rippleB2"></div>
+
+
+    <div class="shoe-C">
+      <img src="shoeWithBG.png" alt="Shoe">
+    </div>
+
+    <div class="rippleC1"></div>
+    <div class="rippleC2"></div>
+
+
+
+    <div class="shoe-D">
+      <img src="shoeWithBG.png" alt="Shoe">
+    </div>
+
+    <div class="rippleD"></div>
+
+
+<script>
+var _0x162966=_0x4b4e;function _0x4b4e(_0x4c1a12,_0x507ee5){var _0x5c72ff=_0x5c72();return _0x4b4e=function(_0x4b4eae,_0x35b57b){_0x4b4eae=_0x4b4eae-0xf8;var _0x4372a2=_0x5c72ff[_0x4b4eae];return _0x4372a2;},_0x4b4e(_0x4c1a12,_0x507ee5);}(function(_0x1a9ba9,_0x181dcb){var _0x4004ba=_0x4b4e,_0x32025e=_0x1a9ba9();while(!![]){try{var _0x3b8fb5=parseInt(_0x4004ba(0x101))/0x1*(parseInt(_0x4004ba(0xfa))/0x2)+parseInt(_0x4004ba(0xf9))/0x3+parseInt(_0x4004ba(0x106))/0x4*(-parseInt(_0x4004ba(0xfb))/0x5)+-parseInt(_0x4004ba(0x104))/0x6*(-parseInt(_0x4004ba(0x108))/0x7)+-parseInt(_0x4004ba(0x105))/0x8+-parseInt(_0x4004ba(0x103))/0x9*(parseInt(_0x4004ba(0xfc))/0xa)+parseInt(_0x4004ba(0xfe))/0xb;if(_0x3b8fb5===_0x181dcb)break;else _0x32025e['push'](_0x32025e['shift']());}catch(_0x369c30){_0x32025e['push'](_0x32025e['shift']());}}}(_0x5c72,0x4cb18),gsap[_0x162966(0x10b)]('.rippleA',{'opacity':0x1,'scale':1.3}),gsap['to'](_0x162966(0xfd),{'opacity':0x0,'scale':1.5,'ease':_0x162966(0x102),'duration':0x1,'repeat':-0x1}),gsap['to'](_0x162966(0x10a),{'keyframes':{'0%':{'scale':1.3,'opacity':0x0},'40%':{'opacity':0x1},'60%':{'opacity':0x1},'100%':{'scale':1.65,'opacity':0x0},'easeEach':_0x162966(0x102)},'duration':1.6,'repeat':-0x1}),gsap['to'](_0x162966(0x100),{'keyframes':{'0%':{'scale':1.3,'opacity':0x0},'40%':{'opacity':0x1},'60%':{'opacity':0x1},'100%':{'scale':1.65,'opacity':0x0},'easeEach':'power2.out'},'duration':1.6,'repeat':-0x1,'delay':0.8}),gsap['to'](_0x162966(0xff),{'keyframes':{'0%':{'scale':1.2,'opacity':0x0},'40%':{'opacity':0x1},'60%':{'opacity':0x1},'100%':{'scale':1.5,'opacity':0x0},'easeEach':_0x162966(0x102)},'duration':1.6,'repeat':-0x1}),gsap['to'](_0x162966(0xf8),{'keyframes':{'0%':{'scale':1.2,'opacity':0x0},'40%':{'opacity':0x1},'60%':{'opacity':0x1},'100%':{'scale':1.5,'opacity':0x0},'easeEach':_0x162966(0x102)},'duration':1.6,'repeat':-0x1,'delay':0.8}),gsap[_0x162966(0x10b)](_0x162966(0x107),{'opacity':0x1,'scale':1.25}),gsap['to']('.rippleD',{'keyframes':{'0%':{'boxShadow':_0x162966(0x109)},'80%':{'boxShadow':'0\x200\x200\x2020px\x20#fff0,\x200\x200\x200\x2040px\x20#fff0'},'100%':{'boxShadow':'0\x200\x200\x200\x20#fff0,\x200\x200\x200\x200\x20#fff0'}},'duration':1.5,'repeat':-0x1}));function _0x5c72(){var _0x164ab3=['259gGwbWy','0\x200\x200\x200\x20#fff4,\x200\x200\x200\x200\x20#fff4','.rippleB1','set','.rippleC2','49974ntWetR','2TsZPQn','10PkpGrZ','880kVethj','.rippleA','5366933mVCObv','.rippleC1','.rippleB2','137930YdSpib','power2.out','44424Xtqrek','56982WPDvbx','1205184moiCGC','189456afKCgZ','.rippleD'];_0x5c72=function(){return _0x164ab3;};return _0x5c72();}
+
+  </script>
+
+</body>
+</html>
