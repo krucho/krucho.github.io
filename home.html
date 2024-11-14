@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fullscreen Slideshow</title>
+  <style>
+    /* Basic layout */
+    html, body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background-color: #ebd8b7;
+    }
+
+    /* Slideshow image styling */
+    #slideshow-image {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: transform 0.6s ease-in-out;
+    }
+
+    /* Invisible navigation buttons */
+    .button {
+      position: absolute;
+      width: 50%;
+      height: 100%;
+      top: 0;
+      cursor: pointer;
+      user-select: none;  /* Prevent click highlighting */
+      border: none;
+      appearance: none;
+      outline: none;
+      box-shadow: none;
+  -webkit-tap-highlight-color: transparent; /* Mobile Safari */
+  user-select: none; /* Prevent text selection */
+
+
+    }
+
+    .button:focus {
+      outline: none;
+      box-shadow: none;
+      user-select: none;  /* Prevent click highlighting */
+        -webkit-tap-highlight-color: transparent; /* Mobile Safari */
+  user-select: none; /* Prevent text selection */
+
+    }
+
+
+        .button:active {
+            border: none;
+            appearance: none;
+            outline: none;
+            box-shadow: none;
+              -webkit-tap-highlight-color: transparent; /* Mobile Safari */
+  user-select: none; /* Prevent text selection */
+
+        }
+
+
+
+
+    .prev { left: 0; }
+    .next { right: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- Image container -->
+  <img id="slideshow-image" src="images/image1.png" alt="Slideshow Image">
+
+  <!-- Navigation buttons (invisible) -->
+  <div class="button prev" onclick="handleClick('prev')"></div>
+  <div class="button next" onclick="handleClick('next')"></div>
+
+  <script>
+    // Fullscreen request
+    function requestFullScreen() {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen();
+      } else if (document.documentElement.webkitRequestFullscreen) {
+        document.documentElement.webkitRequestFullscreen();
+      } else if (document.documentElement.msRequestFullscreen) {
+        document.documentElement.msRequestFullscreen();
+      } else if (document.documentElement.mozRequestFullScreen) {
+        document.documentElement.mozRequestFullScreen();
+      }
+    }
+
+    // Slideshow logic
+    const images = [
+      "images/image1.png",
+      "images/image2.png",
+      "images/image3.png",
+      "images/image4.png",
+      "images/image5.png",
+      "images/image6.png",
+      "images/image7.png",
+      "images/image8.png"
+    ];
+    
+    let currentIndex = 0;
+    const imgElement = document.getElementById("slideshow-image");
+
+    // Show image with sliding effect
+    function showImage(index, direction) {
+      imgElement.style.transition = "none";
+      imgElement.style.transform = direction === "left" ? "translateX(-100%)" : "translateX(100%)";
+      
+      setTimeout(() => {
+        imgElement.src = images[index];
+        imgElement.style.transition = "transform 0.6s ease-in-out";
+        imgElement.style.transform = "translateX(0%)";
+      }, 50);
+    }
+
+    // Event handler for navigation buttons
+    function handleClick(direction) {
+      requestFullScreen();  // Request fullscreen on first click
+      if (direction === 'next') {
+        currentIndex = (currentIndex + 1) % images.length;
+        showImage(currentIndex, "right");
+      } else {
+        currentIndex = (currentIndex - 1 + images.length) % images.length;
+        showImage(currentIndex, "left");
+      }
+    }
+  </script>
+</body>
+</html>
