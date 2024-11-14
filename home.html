@@ -21,7 +21,7 @@
       position: absolute;
       top: 0;
       left: 0;
-      transition: transform 0.6s ease-in-out;
+      transition: transform 0.5s ease-in-out;
     }
 
     /* Invisible navigation buttons */
@@ -36,34 +36,17 @@
       appearance: none;
       outline: none;
       box-shadow: none;
-  -webkit-tap-highlight-color: transparent; /* Mobile Safari */
-  user-select: none; /* Prevent text selection */
-
-
+      -webkit-tap-highlight-color: transparent; /* Mobile Safari */
+      user-select: none; /* Prevent text selection */
     }
 
-    .button:focus {
+    .button:focus,
+    .button:active {
       outline: none;
       box-shadow: none;
-      user-select: none;  /* Prevent click highlighting */
-        -webkit-tap-highlight-color: transparent; /* Mobile Safari */
-  user-select: none; /* Prevent text selection */
-
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
-
-
-        .button:active {
-            border: none;
-            appearance: none;
-            outline: none;
-            box-shadow: none;
-              -webkit-tap-highlight-color: transparent; /* Mobile Safari */
-  user-select: none; /* Prevent text selection */
-
-        }
-
-
-
 
     .prev { left: 0; }
     .next { right: 0; }
@@ -109,14 +92,22 @@
 
     // Show image with sliding effect
     function showImage(index, direction) {
-      imgElement.style.transition = "none";
-      imgElement.style.transform = direction === "left" ? "translateX(-100%)" : "translateX(100%)";
+      // Slide out the current image
+      imgElement.style.transition = "transform 0.6s ease-in-out";
+      imgElement.style.transform = direction === "left" ? "translateX(100%)" : "translateX(-100%)";
       
+      // After slide-out transition, load new image and slide it in
       setTimeout(() => {
         imgElement.src = images[index];
-        imgElement.style.transition = "transform 0.6s ease-in-out";
-        imgElement.style.transform = "translateX(0%)";
-      }, 50);
+        imgElement.style.transition = "none";
+        imgElement.style.transform = direction === "left" ? "translateX(-100%)" : "translateX(100%)";
+        
+        // Slide in the new image
+        setTimeout(() => {
+          imgElement.style.transition = "transform 0.5s ease-in-out";
+          imgElement.style.transform = "translateX(0%)";
+        }, 30);
+      }, 500); // Wait time matches the slide-out duration
     }
 
     // Event handler for navigation buttons
