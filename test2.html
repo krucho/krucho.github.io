@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech to Text with Keyword Counter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            background-color: #0d4029;
+        }
+        #output {
+            width: 80%;
+            min-height: 100px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 20px auto;
+            font-size: 18px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #keywordCount {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Bowl Keyword Counter</h1>
+    <button id="startBtn">Start Listening</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <div id="output">Your speech will appear here...</div>
+    <div id="keywordCount"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const keywordCountDisplay = document.getElementById('keywordCount');
+
+        // Define the keywords to track (Modify these as needed)
+        const keywords = ["hello", "money", "test"];
+        let keywordCounts = {};
+        let lastProcessedText = ""; // Stores the last fully processed text
+
+        // Initialize keyword counters
+        keywords.forEach(word => keywordCounts[word] = 0);
+
+        // Speech Recognition setup
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US'; // Change this to your preferred language
+
+        recognition.onstart = () => {
+            output.textContent = "Listening...";
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+        };
+
+        recognition.onresult = (event) => {
+            let fullTranscript = "";
+            for (let i = 0; i < event.results.length; i++) {
+                if (event.results[i].isFinal) { // Process only final results
+                    fullTranscript += event.results[i][0].transcript.toLowerCase() + " ";
+                }
+            }
+
+            // Remove already processed text
+            let newTranscript = fullTranscript.replace(lastProcessedText, "").trim();
+            lastProcessedText = fullTranscript; // Update the processed text
+
+            output.textContent = fullTranscript; // Update displayed transcript
+
+            // Count keywords in the new part only
+            keywords.forEach(word => {
+                let match = newTranscript.match(new RegExp(`\\b${word}\\b`, 'gi'));
+                if (match) {
+                    keywordCounts[word] += match.length;
+                }
+            });
+
+            updateKeywordDisplay();
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Recognition Error:", event.error);
+            output.textContent = "Error: " + event.error;
+        };
+
+        recognition.onend = () => {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            output.textContent = output.textContent || "Speech recognition stopped.";
+        };
+
+        startBtn.addEventListener('click', () => {
+            recognition.start();
+        });
+
+        stopBtn.addEventListener('click', () => {
+            recognition.stop();
+        });
+
+        function updateKeywordDisplay() {
+            keywordCountDisplay.innerHTML = `<strong>Keyword Count:</strong><br>` + 
+                keywords.map(word => `${word}: ${keywordCounts[word]}`).join("<br>");
+        }
+
+        updateKeywordDisplay(); // Initialize display
+    </script>
+
+</body>
+</html>
