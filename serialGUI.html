@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Serial GUI Tool - Advanced</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 20px;
+      position: relative;
+    }
+
+    button {
+      background-color: #1f1f1f;
+      color: #ffffff;
+      border: 1px solid #444;
+      padding: 10px 16px;
+      margin: 5px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background-color: #2a2a2a;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: #bbb;
+      cursor: pointer;
+      padding: 0 6px;
+      font-size: 16px;
+    }
+
+    .icon-btn:hover {
+      color: #fff;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .custom-wrapper {
+      display: flex;
+      align-items: center;
+      margin: 5px;
+      background-color: #1f1f1f;
+      border: 1px solid #444;
+      border-radius: 6px;
+    }
+
+    .custom-button {
+      user-select: none;
+      border: none;
+      background: none;
+      color: inherit;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .custom-button.dragging {
+      opacity: 0.5;
+    }
+
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 10px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 13px;
+      border-radius: 6px;
+      box-shadow: inset 0 0 5px #000;
+      margin-top: 10px;
+      margin-bottom: 4.1vh;
+    }
+
+    form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    input[type="text"] {
+      padding: 6px;
+      background-color: #1f1f1f;
+      border: 1px solid #444;
+      color: white;
+      border-radius: 4px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+    }
+
+    h4 {
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    .row {
+      margin-bottom: 10px;
+    }
+
+    #logo {
+      max-height: 138px;
+      opacity: 1;
+      filter: invert(1);
+      mix-blend-mode: screen;
+    }
+
+    #logo-wrapper {
+      position: absolute;
+      top: -20px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    #connect-btn {
+      margin-top: 8px;
+      font-size: 13px;
+      padding: 6px 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h2>🛠 Serial GUI Tool</h2>
+
+    <div id="logo-wrapper">
+      <img src="logo.png" id="logo" alt="Logo">
+      <button id="connect-btn" onclick="connect()">🔌 Connect</button>
+    </div>
+
+    <div class="row button-row" id="default-buttons"></div>
+    <div class="row button-row" id="custom-buttons" ondragover="event.preventDefault()"></div>
+
+    <form id="addForm" onsubmit="handleFormSubmit(event)">
+      <input type="text" id="btnLabel" placeholder="Label" required>
+      <input type="text" id="btnCommand" placeholder="Command" required>
+      <input type="text" id="btnIcon" placeholder="Icon (optional)">
+      <button type="submit">💾 Save</button>
+      <button type="button" onclick="resetCustomButtons()">♻️ Reset All</button>
+    </form>
+
+    <h4>📟 Serial Log</h4>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'serialGuiTool_customButtons';
+    let port, writer, reader, dragSourceIndex = null, editIndex = null;
+
+    const log = document.getElementById("log");
+    const defaultButtonsEl = document.getElementById("default-buttons");
+    const customButtonsEl = document.getElementById("custom-buttons");
+
+    const bellSound = new AudioContext();
+    function playBeep() {
+      const osc = bellSound.createOscillator();
+      osc.frequency.value = 800;
+      osc.connect(bellSound.destination);
+      osc.start();
+      osc.stop(bellSound.currentTime + 0.1);
+    }
+
+    const defaultButtons = [
+      { label: "LED ON (on)", command: "on" },
+      { label: "LED OFF (off)", command: "off" },
+      { label: "Send a", command: "a" },
+      { label: "Send b", command: "b" },
+      { label: "Send c", command: "c" },
+    ];
+
+    function createCustomButton(button, index) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "custom-wrapper";
+      wrapper.setAttribute("draggable", true);
+      wrapper.dataset.index = index;
+
+      const btn = document.createElement("button");
+      btn.className = "custom-button";
+      btn.innerHTML = button.icon ? `${button.icon} ${button.label}` : button.label;
+      btn.onclick = () => sendCommand(button.command);
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "icon-btn";
+      editBtn.innerHTML = "🖊";
+      editBtn.title = "Edit";
+      editBtn.onclick = () => editCustomButton(index);
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "icon-btn";
+      delBtn.innerHTML = "🗑️";
+      delBtn.title = "Delete";
+      delBtn.onclick = () => deleteCustomButton(index);
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(editBtn);
+      wrapper.appendChild(delBtn);
+
+      wrapper.addEventListener("dragstart", () => {
+        dragSourceIndex = index;
+        wrapper.classList.add("dragging");
+      });
+      wrapper.addEventListener("dragend", () => wrapper.classList.remove("dragging"));
+      wrapper.addEventListener("drop", (e) => {
+        const targetIndex = e.currentTarget.dataset.index;
+        reorderCustomButtons(dragSourceIndex, targetIndex);
+      });
+
+      return wrapper;
+    }
+
+    function renderButtons() {
+      defaultButtonsEl.innerHTML = '';
+      defaultButtons.forEach(b => {
+        const btn = document.createElement("button");
+        btn.textContent = b.label;
+        btn.onclick = () => sendCommand(b.command);
+        defaultButtonsEl.appendChild(btn);
+      });
+
+      customButtonsEl.innerHTML = '';
+      getCustomButtons().forEach((b, i) => {
+        customButtonsEl.appendChild(createCustomButton(b, i));
+      });
+    }
+
+    function getCustomButtons() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveCustomButtons(buttons) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buttons));
+    }
+
+    function handleFormSubmit(event) {
+      event.preventDefault();
+      const label = document.getElementById("btnLabel").value.trim();
+      const command = document.getElementById("btnCommand").value.trim();
+      const icon = document.getElementById("btnIcon").value.trim();
+      if (!label || !command) return;
+
+      const buttons = getCustomButtons();
+      if (editIndex !== null) {
+        buttons[editIndex] = { label, command, icon };
+        editIndex = null;
+      } else {
+        buttons.push({ label, command, icon });
+      }
+      saveCustomButtons(buttons);
+      renderButtons();
+      event.target.reset();
+    }
+
+    function editCustomButton(index) {
+      const buttons = getCustomButtons();
+      const b = buttons[index];
+      document.getElementById("btnLabel").value = b.label;
+      document.getElementById("btnCommand").value = b.command;
+      document.getElementById("btnIcon").value = b.icon || '';
+      editIndex = index;
+    }
+
+    function deleteCustomButton(index) {
+      const buttons = getCustomButtons();
+      buttons.splice(index, 1);
+      saveCustomButtons(buttons);
+      renderButtons();
+    }
+
+    function resetCustomButtons() {
+      if (confirm("Are you sure you want to remove all custom buttons?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        renderButtons();
+      }
+    }
+
+    function reorderCustomButtons(fromIndex, toIndex) {
+      if (fromIndex === toIndex) return;
+      const buttons = getCustomButtons();
+      const moved = buttons.splice(fromIndex, 1)[0];
+      buttons.splice(toIndex, 0, moved);
+      saveCustomButtons(buttons);
+      renderButtons();
+    }
+
+    async function connect() {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 9600 });
+      writer = port.writable.getWriter();
+      readLoop();
+    }
+
+    async function sendCommand(cmd) {
+      const encoder = new TextEncoder();
+      await writer.write(encoder.encode(cmd + "\n"));
+      appendLog(`> ${cmd}`);
+    }
+
+    function appendLog(text) {
+      log.textContent += text + "\n";
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function readLoop() {
+      reader = port.readable.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value);
+        if (buffer.includes('\u0007')) {
+          playBeep();
+          buffer = buffer.replace(/\u0007/g, '');
+        }
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+        for (const line of lines) appendLog(line);
+      }
+    }
+
+    renderButtons();
+  </script>
+</body>
+</html>
