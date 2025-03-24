@@ -8,7 +8,7 @@
       padding: 0;
       height: 100%;
       overflow: hidden;
-      background-color: #121212;
+      background-color: #333;
       color: #e0e0e0;
       font-family: 'Segoe UI', sans-serif;
     }
@@ -113,21 +113,12 @@
       flex-direction: column;
       align-items: flex-end;
     }
-
-/*    #connect-btn {
+    #connect-btn {
       margin-top: 8px;
       font-size: 13px;
       padding: 6px 12px;
+      z-index: 10;
     }
-*/
-#connect-btn {
-    margin-right: 39%;
-    margin-top: -16%;
-    font-size: 13px;
-    padding: 6px 12px;
-    z-index: 10;
-}
-
     .status-light {
       width: 14px;
       height: 14px;
@@ -135,6 +126,20 @@
       margin-left: 8px;
       background-color: #555;
       box-shadow: 0 0 3px #000;
+    }
+    /* Clear Log button style */
+    #clear-log-btn {
+      background-color: #b22222;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-left: 10px;
+    }
+    #clear-log-btn:hover {
+      background-color: #d32f2f;
     }
   </style>
 </head>
@@ -163,7 +168,10 @@
       <button type="submit">💾 Save Monitor</button>
       <button type="button" onclick="resetPinMonitors()">♻️ Reset Monitors</button>
     </form>
-    <h4>📟 Serial Log</h4>
+    <h4>
+      📟 Serial Log
+      <button id="clear-log-btn" onclick="clearLog()">Clear</button>
+    </h4>
     <div id="log"></div>
   </div>
   <script>
@@ -176,6 +184,7 @@
     const logEl = document.getElementById("log");
     const defaultButtonsEl = document.getElementById("default-buttons");
     const customButtonsEl = document.getElementById("custom-buttons");
+    const connectBtn = document.getElementById("connect-btn");
     // Audio for bell sound
     const bellSound = new AudioContext();
     function playBeep() {
@@ -227,12 +236,12 @@
       btn.onclick = () => sendCommand(button.command);
       const editBtn = document.createElement("button");
       editBtn.className = "icon-btn";
-      editBtn.innerHTML = "🖊";
+      editBtn.innerHTML = "✏️";
       editBtn.title = "Edit";
       editBtn.onclick = (e) => { e.stopPropagation(); editCustomButton(index); };
       const delBtn = document.createElement("button");
       delBtn.className = "icon-btn";
-      delBtn.innerHTML = "🗑️";
+      delBtn.innerHTML = "❌";
       delBtn.title = "Delete";
       delBtn.onclick = (e) => { e.stopPropagation(); deleteCustomButton(index); };
       wrapper.appendChild(btn);
@@ -397,6 +406,10 @@
         await port.open({ baudRate: 9600 });
         writer = port.writable.getWriter();
         readLoop();
+        // Update connect button to show connected status
+        connectBtn.textContent = "Connected";
+        connectBtn.style.backgroundColor = "#228B22";
+        connectBtn.disabled = true;
       } catch (err) {
         appendLog("Error connecting to serial port: " + err);
       }
@@ -413,6 +426,9 @@
     function appendLog(text) {
       logEl.textContent += text + "\n";
       logEl.scrollTop = logEl.scrollHeight;
+    }
+    function clearLog() {
+      logEl.textContent = "";
     }
     async function readLoop() {
       const decoder = new TextDecoder();
@@ -444,6 +460,10 @@
         appendLog("Error reading from serial port: " + err);
       } finally {
         reader.releaseLock();
+        // Connection lost; update connect button to allow reconnection.
+        connectBtn.textContent = "🔌 Connect";
+        connectBtn.style.backgroundColor = "#1f1f1f";
+        connectBtn.disabled = false;
       }
     }
     function updateMonitorStatus(id, state) {
