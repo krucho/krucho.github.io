@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Extract First and Last Frame</title>
+  <style>
+    body { font-family: sans-serif; background: #111; color: white; text-align: center; padding: 2em; }
+    canvas { display: none; }
+    img { max-width: 90%; margin: 1em; border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <h1>Upload a Video</h1>
+  <input type="file" accept="video/*" id="videoInput" />
+  <div id="frames"></div>
+
+  <video id="video" crossorigin="anonymous"></video>
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const framesContainer = document.getElementById('frames');
+
+    document.getElementById('videoInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const url = URL.createObjectURL(file);
+      video.src = url;
+
+      await new Promise(resolve => video.onloadedmetadata = resolve);
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const captureFrame = async (time) => {
+        return new Promise(resolve => {
+          video.currentTime = time;
+          video.onseeked = () => {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/png');
+            resolve(dataURL);
+          };
+        });
+      };
+
+      const firstFrame = await captureFrame(0);
+      const lastFrame = await captureFrame(video.duration);
+
+      framesContainer.innerHTML = `
+        <h2>First Frame</h2>
+        <img src="${firstFrame}" />
+        <a href="${firstFrame}" download="first_frame.png">Download</a>
+        <h2>Last Frame</h2>
+        <img src="${lastFrame}" />
+        <a href="${lastFrame}" download="last_frame.png">Download</a>
+      `;
+    });
+  </script>
+</body>
+</html>
