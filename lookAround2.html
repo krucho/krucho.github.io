@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Look-Around DOM Background (stronger pan)</title>
+<style>
+  :root{ --ui:12px; --card:rgba(20,20,25,.8); --fg:#e8e8ef; }
+  html,body{height:100%;margin:0}
+  body{background:#000;font:16px system-ui,Segoe UI,Roboto,Helvetica,Arial;color:#ddd;overflow:hidden}
+  .stage{position:fixed;inset:0;overflow:hidden;background:#000}
+  .bg{
+    position:absolute;left:50%;top:50%;
+    transform:translate(-50%,-50%) scale(1.15); /* baseScale (raise this to 1.25+ for even more pan headroom) */
+    will-change:transform;user-select:none;pointer-events:none;max-width:none;content-visibility:auto;
+  }
+  .hud{
+    position:fixed;left:var(--ui);bottom:var(--ui);
+    background:var(--card);backdrop-filter:blur(6px);
+    padding:12px;border-radius:12px;display:grid;gap:8px;z-index:3;width:min(420px,92vw)
+  }
+  .row{display:grid;grid-template-columns:130px 1fr 64px;gap:8px;align-items:center}
+  .row label{font-size:13px;color:#aeb0bb}
+  .row input[type="range"]{width:100%}
+  .row output{justify-self:end;font-variant-numeric:tabular-nums}
+  .toggles{display:flex;gap:10px;flex-wrap:wrap}
+  .toggles label{font-size:13px;color:#aeb0bb}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{background:#1b1e27;border:1px solid #2a2f3a;color:var(--fg);padding:6px 10px;border-radius:10px;cursor:pointer}
+  button.primary{background:#2a3344}
+  .hint{font-size:12px;color:#9aa0ad}
+  .cross{
+    position:fixed;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;
+    border:1px dashed rgba(255,255,255,.25);border-radius:50%;pointer-events:none;z-index:2;
+    transform:translate(0,0);
+  }
+  video{position:fixed;right:8px;top:8px;width:160px;height:auto;border-radius:8px;opacity:.12;display:none}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <img id="bg" class="bg" alt="" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=2000&auto=format&fit=crop" />
+  </div>
+
+  <div class="cross" id="cross"></div>
+
+  <div class="hud">
+    <div class="row">
+      <label for="sensX">Pan X</label>
+      <input id="sensX" type="range" min="0" max="1" step="0.01" />
+      <output id="sensXo"></output>
+    </div>
+    <div class="row">
+      <label for="sensY">Pan Y</label>
+      <input id="sensY" type="range" min="0" max="1" step="0.01" />
+      <output id="sensYo"></output>
+    </div>
+    <div class="row">
+      <label for="panRange">Pan range</label>
+      <input id="panRange" type="range" min="0.20" max="0.95" step="0.01" />
+      <output id="panRangeo"></output>
+    </div>
+    <div class="row">
+      <label for="panCurve">Pan curve</label>
+      <input id="panCurve" type="range" min="0.50" max="1.50" step="0.01" />
+      <output id="panCurveo"></output>
+    </div>
+    <div class="row">
+      <label for="zoom">Zoom strength</label>
+      <input id="zoom" type="range" min="0" max="1.25" step="0.01" />
+      <output id="zoomo"></output>
+    </div>
+    <div class="row">
+      <label for="smooth">Smoothing</label>
+      <input id="smooth" type="range" min="0.02" max="0.5" step="0.01" />
+      <output id="smootho"></output>
+    </div>
+    <div class="toggles">
+      <label><input id="invX" type="checkbox"> invert X</label>
+      <label><input id="invY" type="checkbox"> invert Y</label>
+    </div>
+    <div class="btns">
+      <button id="start" class="primary">Start camera</button>
+      <button id="stop">Stop</button>
+      <button id="reset">Reset baseline</button>
+      <span class="hint">Tip: For no edges showing, keep Pan range ≤ 0.50 or raise baseScale in the code.</span>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <video id="video" playsinline></video>
+
+<script>
+(() => {
+  const bg = document.getElementById('bg');
+  const cross = document.getElementById('cross');
+  const videoEl = document.getElementById('video');
+
+  // Defaults tuned for stronger pan
+  const defaults = {
+    sensX: .95,
+    sensY: .95,
+    panRange: .90,   // 0.20..0.95 (0.50 = “safe”; >0.5 can reveal edges but is punchier)
+    panCurve: .75,   // <1 = boosted near center; >1 = gentler near center
+    zoom: .85,
+    smooth: .14,
+    invX: false,
+    invY: false
+  };
+  const state = loadState();
+
+  // Simple binders
+  bindSlider('sensX','sensXo', v => state.sensX = +v, state.sensX);
+  bindSlider('sensY','sensYo', v => state.sensY = +v, state.sensY);
+  bindSlider('panRange','panRangeo', v => state.panRange = +v, state.panRange);
+  bindSlider('panCurve','panCurveo', v => state.panCurve = +v, state.panCurve);
+  bindSlider('zoom','zoomo', v => state.zoom = +v, state.zoom);
+  bindSlider('smooth','smootho', v => state.smooth = +v, state.smooth);
+  bindToggle('invX', v => state.invX = v, state.invX);
+  bindToggle('invY', v => state.invY = v, state.invY);
+  document.getElementById('reset').onclick = () => { faceWidthBaseline = null; };
+
+  // MediaPipe
+  let camera = null, running = false;
+  const faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+  });
+  faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:false, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  faceMesh.onResults(onResults);
+
+  document.getElementById('start').onclick = async () => {
+    if (running) return; running = true;
+    camera = new Camera(videoEl, { onFrame: async () => { await faceMesh.send({ image: videoEl }); }, width: 640, height: 480 });
+    await camera.start();
+  };
+  document.getElementById('stop').onclick = () => { running = false; if (camera && camera.stop) camera.stop(); };
+
+  // Parallax mapping
+  let targetTX = 0, targetTY = 0, targetS = 1.15; // baseScale
+  let currTX = 0, currTY = 0, currS = 1.15;
+
+  let faceWidthBaseline = null, baselineEMA = null;
+
+  function tick(){
+    const a = clamp(state.smooth, 0.02, 0.6);
+    currTX += (targetTX - currTX) * a;
+    currTY += (targetTY - currTY) * a;
+    currS  += (targetS  - currS)  * a;
+    bg.style.transform = `translate(-50%, -50%) translate(${currTX.toFixed(2)}px, ${currTY.toFixed(2)}px) scale(${currS.toFixed(4)})`;
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  function onResults(results){
+    if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length){
+      targetTX *= .9; targetTY *= .9;
+      targetS += (1.15 - targetS) * .05; // return to baseScale
+      cross.style.transform = `translate(0,0)`;
+      return;
+    }
+    const lm = results.multiFaceLandmarks[0];
+
+    // bbox for center + width
+    let minX=1e3,minY=1e3,maxX=-1e3,maxY=-1e3;
+    for (let i=0;i<lm.length;i++){
+      const x=lm[i].x,y=lm[i].y;
+      if (x<minX)minX=x;if(x>maxX)maxX=x;
+      if (y<minY)minY=y;if(y>maxY)maxY=y;
+    }
+    const cx=(minX+maxX)*.5, cy=(minY+maxY)*.5, w=(maxX-minX);
+
+    // learn width baseline
+    if (faceWidthBaseline==null){ faceWidthBaseline=w; baselineEMA=w; }
+    else { baselineEMA=baselineEMA*0.98+w*0.02; faceWidthBaseline=baselineEMA; }
+
+    const vw = innerWidth, vh = innerHeight;
+    const invX = state.invX ? -1 : 1;
+    const invY = state.invY ? -1 : 1;
+
+    // pan response shaping
+    const shaped = (x,g) => { const s=x<0?-1:1; return s*Math.pow(Math.min(1,Math.abs(x)), g); };
+    const dx = shaped((cx - 0.5) * 2 * invX, state.panCurve); // -1..1
+    const dy = shaped((cy - 0.5) * 2 * invY, state.panCurve);
+
+    // how much of the bleed to allow (0.5 is “no edges if centered”; >0.5 may show edges at extremes)
+    const panWindow = clamp(state.panRange, 0.2, 0.95);
+
+    const scaleNow = currS;
+    const panMaxX = (scaleNow - 1) * vw * panWindow;
+    const panMaxY = (scaleNow - 1) * vh * panWindow;
+
+    const panStrengthX = state.sensX;
+    const panStrengthY = state.sensY;
+
+    targetTX = clamp(dx * panMaxX * panStrengthX, -panMaxX, panMaxX);
+    targetTY = clamp(dy * panMaxY * panStrengthY, -panMaxY, panMaxY);
+
+    // zoom from face size (unchanged)
+    const baseScale = 1.15;           // <-- raise to 1.25 or 1.30 if you want even more pan headroom
+    const minScale  = 1.10;
+    const maxScale  = 1.80;
+    const zoomK = state.zoom;
+    let s = baseScale + (w - faceWidthBaseline) * (2.2 * zoomK);
+    targetS = clamp(s, minScale, maxScale);
+
+    // crosshair
+    const crossX = (cx - 0.5) * vw;
+    const crossY = (cy - 0.5) * vh;
+    cross.style.transform = `translate(${crossX.toFixed(1)}px, ${crossY.toFixed(1)}px)`;
+  }
+
+  // Utils + bindings
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+  function bindSlider(id,outId,on,val){
+    const el=document.getElementById(id), out=document.getElementById(outId);
+    el.value=val; out.textContent=Number(val).toFixed(2);
+    el.addEventListener('input',()=>{ on(el.value); out.textContent=Number(el.value).toFixed(2); saveState(); });
+  }
+  function bindToggle(id,on,val){
+    const el=document.getElementById(id); el.checked=!!val;
+    el.addEventListener('change',()=>{ on(el.checked); saveState(); });
+  }
+  function saveState(){ localStorage.setItem('lookaround_cfg', JSON.stringify(state)); }
+  function loadState(){ try{ return {...defaults, ...JSON.parse(localStorage.getItem('lookaround_cfg')||'{}')}; }catch(e){ return {...defaults}; } }
+
+  // Keyboard test (optional)
+  addEventListener('keydown', (e) => {
+    const step=14;
+    if (e.key==='ArrowLeft')  targetTX-=step;
+    if (e.key==='ArrowRight') targetTX+=step;
+    if (e.key==='ArrowUp')    targetTY-=step;
+    if (e.key==='ArrowDown')  targetTY+=step;
+    if (e.key==='+') targetS=clamp(targetS+0.02,1.10,1.80);
+    if (e.key==='-') targetS=clamp(targetS-0.02,1.10,1.80);
+  });
+})();
+</script>
+</body>
+</html>
