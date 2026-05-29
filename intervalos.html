@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guía de acordes para coros</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: #151515;
+      color: #eee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .app {
+      width: min(960px, 94vw);
+      background: #202020;
+      border: 1px solid #333;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      margin: 0 0 18px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: end;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: #aaa;
+    }
+
+    select, button, input {
+      background: #111;
+      color: #eee;
+      border: 1px solid #444;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      width: 130px;
+    }
+
+    button {
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    button:hover {
+      background: #2d2d2d;
+    }
+
+    button.active {
+      background: #2d8fbd;
+      border-color: #8fd6ff;
+      color: #00131f;
+      font-weight: 700;
+    }
+
+    .chord-tones-panel {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 18px;
+    }
+
+    .chord-tones-panel h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      color: #bbb;
+      font-weight: 600;
+    }
+
+    .chord-tones-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tone-toggle {
+      min-width: 72px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .tone-toggle.off {
+      background: #1a1a1a;
+      border-color: #555;
+      color: #888;
+      opacity: 0.85;
+    }
+
+    .tone-toggle.off:hover {
+      background: #252525;
+      color: #bbb;
+    }
+
+    .chord-quick {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .chord-quick button {
+      font-size: 13px;
+      padding: 8px 12px;
+    }
+
+    .libre-hint {
+      color: #999;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .piano-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 10px 0 4px;
+    }
+
+    .piano {
+      position: relative;
+      height: 220px;
+      min-width: 760px;
+      user-select: none;
+    }
+
+    .white-layer {
+      display: flex;
+      height: 100%;
+    }
+
+    .key {
+      cursor: pointer;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 12px;
+      font-weight: 700;
+      transition: 0.12s;
+    }
+
+    .white {
+      flex: 1;
+      height: 220px;
+      background: #f1f1f1;
+      color: #222;
+      border: 1px solid #999;
+      border-radius: 0 0 8px 8px;
+    }
+
+    .white:hover {
+      background: #ddd;
+    }
+
+    .black {
+      position: absolute;
+      top: 0;
+      width: var(--black-w);
+      height: 135px;
+      left: var(--x);
+      background: #111;
+      color: #eee;
+      border: 1px solid #000;
+      border-radius: 0 0 7px 7px;
+      z-index: 3;
+      font-size: 13px;
+      padding-bottom: 10px;
+    }
+
+    .black:hover {
+      background: #333;
+    }
+
+    .key.on.white {
+      background: #8fd6ff;
+      color: #00131f;
+    }
+
+    .key.on.black {
+      background: #3daee9;
+      color: #00131f;
+      border-color: #9be0ff;
+    }
+
+    .key.chord-muted.white {
+      background: #c8dce8;
+      color: #445;
+      border: 2px dashed #5a9ab8;
+    }
+
+    .key.chord-muted.black {
+      background: #1e3a4a;
+      color: #8ab;
+      border: 2px dashed #5a9ab8;
+    }
+
+    .key.extra-on.white {
+      background: #9ee8b0;
+      color: #0a2a12;
+      border-color: #5cb87a;
+    }
+
+    .key.extra-on.black {
+      background: #3d9e5a;
+      color: #e8fff0;
+      border-color: #7ed49a;
+    }
+
+    .key.root {
+      outline: 4px solid #ffda6a;
+      outline-offset: -5px;
+    }
+
+    .info {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .info .panel-wide {
+      grid-column: 1 / -1;
+    }
+
+    .panel {
+      background: #181818;
+      border: 1px solid #333;
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 88px;
+    }
+
+    .panel h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #bbb;
+      font-weight: 600;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      background: #2d2d2d;
+      border: 1px solid #444;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 14px;
+    }
+
+    .chip.extra {
+      background: #1a3322;
+      border-color: #5cb87a;
+      color: #b8f0c8;
+    }
+
+    .chip.muted {
+      background: #1a1a1a;
+      border-color: #555;
+      color: #777;
+      text-decoration: line-through;
+    }
+
+    .chip-extra-remove {
+      margin-left: 4px;
+      cursor: pointer;
+      opacity: 0.8;
+      border: none;
+      background: none;
+      color: inherit;
+      padding: 0 2px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .chip-extra-remove:hover {
+      opacity: 1;
+    }
+
+    .hint {
+      margin-top: 14px;
+      color: #999;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 700px) {
+      .info {
+        grid-template-columns: 1fr;
+      }
+
+      .chord-quick {
+        margin-left: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>Guía de acordes para coros</h1>
+
+    <div class="controls">
+      <label>
+        Nota principal
+        <select id="rootSelect"></select>
+      </label>
+
+      <label>
+        Acorde
+        <select id="chordSelect"></select>
+      </label>
+
+      <label>
+        Octava base
+        <select id="octaveSelect">
+          <option value="2">Grave</option>
+          <option value="3" selected>Media</option>
+          <option value="4">Aguda</option>
+        </select>
+      </label>
+
+      <label>
+        Volumen
+        <input id="volumeSlider" type="range" min="0" max="0.5" step="0.01" value="0.16">
+      </label>
+
+      <button id="soundBtn">Activar sonido</button>
+      <button id="rootOnlyBtn">Solo raíz</button>
+      <button id="clearBtn">Apagar todo</button>
+    </div>
+
+    <div class="chord-tones-panel" id="chordTonesPanel">
+      <h2>Notas del acorde</h2>
+      <div class="chord-tones-row">
+        <div class="chips" id="chordTonesChips"></div>
+        <div class="chord-quick">
+          <button type="button" id="chordAllBtn">Todas</button>
+          <button type="button" id="chordNoneBtn">Ninguna</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="piano-wrap">
+      <div class="piano" id="piano">
+        <div class="white-layer" id="whiteLayer"></div>
+        <div class="black-layer" id="blackLayer"></div>
+      </div>
+    </div>
+
+    <div class="info">
+      <div class="panel">
+        <h2>Notas sonando</h2>
+        <div class="chips" id="notesInfo"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Intervalos respecto de la raíz</h2>
+        <div class="chips" id="intervalsInfo"></div>
+      </div>
+
+      <div class="panel panel-wide">
+        <h2>Extensiones (fuera del acorde)</h2>
+        <div class="chips" id="extrasInfo"></div>
+      </div>
+    </div>
+
+    <div class="hint">
+      Elegí un acorde y activá o apagá cada grado (1, 3, 5, 7…) para practicar coros y armonización.
+      El piano muestra dos octavas; el sonido se mantiene en una sola octava según «Octava base».
+      Las notas quedan sonando hasta que las apagues. Extensiones en verde; acorde apagado, borde punteado.
+    </div>
+  </div>
+
+  <script>
+    const noteNames = [
+      "C / Do", "C# / Do#", "D / Re", "D# / Re#",
+      "E / Mi", "F / Fa", "F# / Fa#", "G / Sol",
+      "G# / Sol#", "A / La", "A# / La#", "B / Si"
+    ];
+
+    const shortNames = [
+      "C", "C#", "D", "D#", "E", "F",
+      "F#", "G", "G#", "A", "A#", "B"
+    ];
+
+    const intervalNames = [
+      "1 / raíz",
+      "b2",
+      "2 / 9",
+      "b3",
+      "3",
+      "4 / 11",
+      "b5 / #11",
+      "5",
+      "#5 / b6",
+      "6 / 13",
+      "b7",
+      "7"
+    ];
+
+    const chords = {
+      major: {
+        name: "Mayor",
+        intervals: [0, 4, 7]
+      },
+      minor: {
+        name: "Menor",
+        intervals: [0, 3, 7]
+      },
+      power: {
+        name: "Quinta / power chord",
+        intervals: [0, 7]
+      },
+      sus2: {
+        name: "Sus2",
+        intervals: [0, 2, 7]
+      },
+      sus4: {
+        name: "Sus4",
+        intervals: [0, 5, 7]
+      },
+      dim: {
+        name: "Disminuido",
+        intervals: [0, 3, 6]
+      },
+      aug: {
+        name: "Aumentado",
+        intervals: [0, 4, 8]
+      },
+      maj7: {
+        name: "Maj7",
+        intervals: [0, 4, 7, 11]
+      },
+      dom7: {
+        name: "7 dominante",
+        intervals: [0, 4, 7, 10]
+      },
+      min7: {
+        name: "m7",
+        intervals: [0, 3, 7, 10]
+      },
+      minMaj7: {
+        name: "mMaj7",
+        intervals: [0, 3, 7, 11]
+      },
+      six: {
+        name: "6",
+        intervals: [0, 4, 7, 9]
+      },
+      min6: {
+        name: "m6",
+        intervals: [0, 3, 7, 9]
+      },
+      add9: {
+        name: "add9",
+        intervals: [0, 4, 7, 2]
+      },
+      minAdd9: {
+        name: "m add9",
+        intervals: [0, 3, 7, 2]
+      },
+      libre: {
+        name: "Libre",
+        intervals: []
+      }
+    };
+
+    const rootSelect = document.getElementById("rootSelect");
+    const chordSelect = document.getElementById("chordSelect");
+    const octaveSelect = document.getElementById("octaveSelect");
+    const volumeSlider = document.getElementById("volumeSlider");
+    const whiteLayer = document.getElementById("whiteLayer");
+    const blackLayer = document.getElementById("blackLayer");
+    const piano = document.getElementById("piano");
+    const notesInfo = document.getElementById("notesInfo");
+    const intervalsInfo = document.getElementById("intervalsInfo");
+    const extrasInfo = document.getElementById("extrasInfo");
+    const chordTonesPanel = document.getElementById("chordTonesPanel");
+    const chordTonesChips = document.getElementById("chordTonesChips");
+    const chordAllBtn = document.getElementById("chordAllBtn");
+    const chordNoneBtn = document.getElementById("chordNoneBtn");
+    const soundBtn = document.getElementById("soundBtn");
+    const rootOnlyBtn = document.getElementById("rootOnlyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    let rootPc = 0;
+    let baseOctave = 3;
+    let selectedChordKey = "major";
+    let mutedIntervals = new Set();
+    let extraPcs = new Set();
+    let activePcs = new Set();
+
+    let audioCtx = null;
+    let masterGain = null;
+    let soundEnabled = false;
+
+    const playing = new Map();
+
+    const whiteOffsets = [0, 2, 4, 5, 7, 9, 11];
+    const blackKeyLayout = [
+      { offset: 1, afterWhite: 0 },
+      { offset: 3, afterWhite: 1 },
+      { offset: 6, afterWhite: 3 },
+      { offset: 8, afterWhite: 4 },
+      { offset: 10, afterWhite: 5 }
+    ];
+
+    function getOctaveStartMidi() {
+      return 12 * (baseOctave + 1);
+    }
+
+    function getPianoStartMidi() {
+      return getOctaveStartMidi();
+    }
+
+    function getWhiteKeys() {
+      const start = getPianoStartMidi();
+      const offsets = whiteOffsets.concat(whiteOffsets.map(o => o + 12));
+      return offsets.map(offset => start + offset);
+    }
+
+    function getBlackKeys() {
+      const start = getPianoStartMidi();
+      const first = blackKeyLayout.map(({ offset, afterWhite }) => ({
+        midi: start + offset,
+        afterWhite
+      }));
+      const second = blackKeyLayout.map(({ offset, afterWhite }) => ({
+        midi: start + offset + 12,
+        afterWhite: afterWhite + 7
+      }));
+      return first.concat(second);
+    }
+
+    function isLibreMode() {
+      return selectedChordKey === "libre";
+    }
+
+    function getChordIntervals() {
+      return chords[selectedChordKey].intervals;
+    }
+
+    function pcToInterval(pc) {
+      return (pc - rootPc + 12) % 12;
+    }
+
+    function intervalToPc(interval) {
+      return (rootPc + interval) % 12;
+    }
+
+    function getChordTonePcs() {
+      return new Set(getChordIntervals().map(interval => intervalToPc(interval)));
+    }
+
+    function recomputeActivePcs() {
+      const active = new Set();
+
+      if (isLibreMode()) {
+        extraPcs.forEach(pc => active.add(pc));
+        return active;
+      }
+
+      getChordIntervals().forEach(interval => {
+        if (!mutedIntervals.has(interval)) {
+          active.add(intervalToPc(interval));
+        }
+      });
+
+      extraPcs.forEach(pc => active.add(pc));
+      return active;
+    }
+
+    function commitState(syncAudio = true) {
+      activePcs = recomputeActivePcs();
+      render();
+      if (syncAudio) {
+        syncSoundToActiveNotes();
+      }
+    }
+
+    function midiToPc(midi) {
+      return midi % 12;
+    }
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function pcToSustainedMidi(pc) {
+      const octaveStart = getOctaveStartMidi();
+      const interval = pcToInterval(pc);
+      return octaveStart + rootPc + interval;
+    }
+
+    function initSelectors() {
+      noteNames.forEach((name, index) => {
+        const opt = document.createElement("option");
+        opt.value = index;
+        opt.textContent = name;
+        rootSelect.appendChild(opt);
+      });
+
+      Object.entries(chords).forEach(([key, chord]) => {
+        if (key === "libre") return;
+
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = chord.name;
+        chordSelect.appendChild(opt);
+      });
+
+      const libreOpt = document.createElement("option");
+      libreOpt.value = "libre";
+      libreOpt.textContent = chords.libre.name;
+      chordSelect.appendChild(libreOpt);
+
+      chordSelect.value = "major";
+      selectedChordKey = "major";
+    }
+
+    function buildPiano() {
+      whiteLayer.innerHTML = "";
+      blackLayer.innerHTML = "";
+
+      getWhiteKeys().forEach(midi => {
+        const pc = midiToPc(midi);
+        const key = document.createElement("div");
+        key.className = "key white";
+        key.dataset.pc = pc;
+        key.dataset.midi = midi;
+        key.textContent = shortNames[pc];
+
+        key.addEventListener("click", () => toggleNote(pc));
+
+        whiteLayer.appendChild(key);
+      });
+
+      getBlackKeys().forEach(data => {
+        const pc = midiToPc(data.midi);
+        const key = document.createElement("div");
+        key.className = "key black";
+        key.dataset.pc = pc;
+        key.dataset.midi = data.midi;
+        key.dataset.afterWhite = data.afterWhite;
+        key.textContent = shortNames[pc];
+
+        key.addEventListener("click", () => toggleNote(pc));
+
+        blackLayer.appendChild(key);
+      });
+
+      positionBlackKeys();
+    }
+
+    function positionBlackKeys() {
+      const whiteCount = getWhiteKeys().length;
+      const pianoWidth = piano.clientWidth;
+      const whiteW = pianoWidth / whiteCount;
+      const blackW = whiteW * 0.62;
+
+      document.querySelectorAll(".black").forEach(key => {
+        const afterWhite = Number(key.dataset.afterWhite);
+        const x = ((afterWhite + 1) * whiteW) - (blackW / 2);
+
+        key.style.setProperty("--x", `${x}px`);
+        key.style.setProperty("--black-w", `${blackW}px`);
+      });
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = Number(volumeSlider.value);
+        masterGain.connect(audioCtx.destination);
+      }
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function startNote(pc) {
+      if (!soundEnabled) return;
+      if (playing.has(pc)) return;
+
+      ensureAudio();
+
+      const now = audioCtx.currentTime;
+      const midi = pcToSustainedMidi(pc);
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.value = midiToFreq(midi);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.6);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+
+      osc.start(now);
+
+      playing.set(pc, { osc, gain });
+    }
+
+    function stopNote(pc) {
+      if (!playing.has(pc)) return;
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+      const voice = playing.get(pc);
+
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setValueAtTime(0, now);
+
+      try {
+        voice.osc.stop(now);
+      } catch (e) {
+        /* ya detenido */
+      }
+
+      playing.delete(pc);
+    }
+
+    function stopAllSound() {
+      [...playing.keys()].forEach(pc => stopNote(pc));
+    }
+
+    function syncSoundToActiveNotes() {
+      if (!soundEnabled) return;
+
+      [...playing.keys()].forEach(pc => {
+        if (!activePcs.has(pc)) stopNote(pc);
+      });
+
+      activePcs.forEach(pc => {
+        startNote(pc);
+      });
+    }
+
+    function restartSustainedNotes() {
+      stopAllSound();
+      syncSoundToActiveNotes();
+    }
+
+    function toggleInterval(interval) {
+      if (isLibreMode()) return;
+
+      if (mutedIntervals.has(interval)) {
+        mutedIntervals.delete(interval);
+      } else {
+        mutedIntervals.add(interval);
+      }
+
+      commitState();
+    }
+
+    function toggleNote(pc) {
+      if (isLibreMode()) {
+        if (extraPcs.has(pc)) {
+          extraPcs.delete(pc);
+        } else {
+          extraPcs.add(pc);
+        }
+        commitState();
+        return;
+      }
+
+      const interval = pcToInterval(pc);
+      const template = getChordIntervals();
+
+      if (template.includes(interval)) {
+        toggleInterval(interval);
+        return;
+      }
+
+      if (extraPcs.has(pc)) {
+        extraPcs.delete(pc);
+      } else {
+        extraPcs.add(pc);
+      }
+
+      commitState();
+    }
+
+    function removeExtra(pc) {
+      extraPcs.delete(pc);
+      commitState();
+    }
+
+    function applyChord() {
+      selectedChordKey = chordSelect.value;
+      extraPcs.clear();
+      mutedIntervals.clear();
+      commitState();
+    }
+
+    function muteAllChordTones() {
+      getChordIntervals().forEach(interval => {
+        mutedIntervals.add(interval);
+      });
+    }
+
+    function unmuteAllChordTones() {
+      mutedIntervals.clear();
+    }
+
+    function rootOnly() {
+      if (isLibreMode()) {
+        extraPcs.clear();
+        extraPcs.add(rootPc);
+      } else {
+        muteAllChordTones();
+        mutedIntervals.delete(0);
+      }
+      commitState();
+    }
+
+    function clearAll() {
+      if (isLibreMode()) {
+        extraPcs.clear();
+      } else {
+        muteAllChordTones();
+        extraPcs.clear();
+      }
+      commitState();
+    }
+
+    function sortedIntervals(intervals) {
+      return [...intervals].sort((a, b) => a - b);
+    }
+
+    function renderChordTones() {
+      chordTonesChips.innerHTML = "";
+
+      if (isLibreMode()) {
+        chordTonesPanel.querySelector("h2").textContent = "Modo libre";
+        chordAllBtn.style.display = "none";
+        chordNoneBtn.style.display = "none";
+
+        const p = document.createElement("p");
+        p.className = "libre-hint";
+        p.textContent = "Sin plantilla de acorde: usá el piano para agregar cualquier nota.";
+        chordTonesChips.appendChild(p);
+        return;
+      }
+
+      chordTonesPanel.querySelector("h2").textContent = "Notas del acorde";
+      chordAllBtn.style.display = "";
+      chordNoneBtn.style.display = "";
+
+      sortedIntervals(getChordIntervals()).forEach(interval => {
+        const pc = intervalToPc(interval);
+        const sounding = !mutedIntervals.has(interval);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tone-toggle" + (sounding ? " active" : " off");
+        btn.textContent = `${intervalNames[interval]} (${shortNames[pc]})`;
+        btn.addEventListener("click", () => toggleInterval(interval));
+        chordTonesChips.appendChild(btn);
+      });
+    }
+
+    function renderExtras() {
+      extrasInfo.innerHTML = "";
+
+      if (extraPcs.size === 0) {
+        extrasInfo.innerHTML = `<span class="chip">Ninguna</span>`;
+        return;
+      }
+
+      [...extraPcs].sort((a, b) => {
+        return pcToInterval(a) - pcToInterval(b);
+      }).forEach(pc => {
+        const interval = pcToInterval(pc);
+        const wrap = document.createElement("span");
+        wrap.className = "chip extra";
+
+        const label = document.createElement("span");
+        label.textContent = `${shortNames[pc]} (${intervalNames[interval]})`;
+        wrap.appendChild(label);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "chip-extra-remove";
+        removeBtn.setAttribute("aria-label", "Quitar extensión");
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeExtra(pc);
+        });
+        wrap.appendChild(removeBtn);
+
+        extrasInfo.appendChild(wrap);
+      });
+    }
+
+    function render() {
+      activePcs = recomputeActivePcs();
+
+      document.querySelectorAll(".key").forEach(key => {
+        const pc = Number(key.dataset.pc);
+        const keyMidi = Number(key.dataset.midi);
+        const voiceMidi = pcToSustainedMidi(pc);
+        const onThisKey = keyMidi === voiceMidi;
+        const interval = pcToInterval(pc);
+        const inTemplate = !isLibreMode() && getChordIntervals().includes(interval);
+        const isMuted = inTemplate && mutedIntervals.has(interval);
+        const isExtra = extraPcs.has(pc);
+        const isOn = activePcs.has(pc) && onThisKey;
+        const isRoot = pc === rootPc;
+
+        key.classList.toggle("on", isOn && inTemplate && !isExtra);
+        key.classList.toggle("chord-muted", inTemplate && isMuted && onThisKey);
+        key.classList.toggle("extra-on", isExtra && isOn);
+        key.classList.toggle("root", isRoot && onThisKey && (isOn || isMuted));
+
+        if (isExtra && isOn) {
+          key.classList.remove("on");
+        }
+      });
+
+      renderChordTones();
+      renderExtras();
+
+      notesInfo.innerHTML = "";
+      intervalsInfo.innerHTML = "";
+
+      const sortedActive = [...activePcs].sort((a, b) => {
+        return pcToInterval(a) - pcToInterval(b);
+      });
+
+      if (sortedActive.length === 0) {
+        notesInfo.innerHTML = `<span class="chip">Sin notas</span>`;
+      } else {
+        sortedActive.forEach(pc => {
+          const chip = document.createElement("span");
+          chip.className = "chip" + (extraPcs.has(pc) ? " extra" : "");
+          chip.textContent = shortNames[pc];
+          notesInfo.appendChild(chip);
+        });
+      }
+
+      if (isLibreMode()) {
+        if (sortedActive.length === 0) {
+          intervalsInfo.innerHTML = `<span class="chip">Sin intervalos</span>`;
+        } else {
+          sortedActive.forEach(pc => {
+            const interval = pcToInterval(pc);
+            const chip = document.createElement("span");
+            chip.className = "chip";
+            chip.textContent = `${shortNames[pc]} = ${intervalNames[interval]}`;
+            intervalsInfo.appendChild(chip);
+          });
+        }
+        return;
+      }
+
+      const templateSorted = sortedIntervals(getChordIntervals());
+
+      if (templateSorted.length === 0) {
+        intervalsInfo.innerHTML = `<span class="chip">Sin intervalos</span>`;
+        return;
+      }
+
+      templateSorted.forEach(interval => {
+        const pc = intervalToPc(interval);
+        const muted = mutedIntervals.has(interval);
+        const chip = document.createElement("span");
+        chip.className = "chip" + (muted ? " muted" : "");
+        chip.textContent = `${shortNames[pc]} = ${intervalNames[interval]}`;
+        intervalsInfo.appendChild(chip);
+      });
+    }
+
+    soundBtn.addEventListener("click", () => {
+      ensureAudio();
+
+      soundEnabled = !soundEnabled;
+
+      if (soundEnabled) {
+        soundBtn.textContent = "Sonido activo";
+        soundBtn.classList.add("active");
+        syncSoundToActiveNotes();
+      } else {
+        soundBtn.textContent = "Activar sonido";
+        soundBtn.classList.remove("active");
+        stopAllSound();
+      }
+    });
+
+    rootSelect.addEventListener("change", () => {
+      rootPc = Number(rootSelect.value);
+      commitState(false);
+      restartSustainedNotes();
+    });
+
+    chordSelect.addEventListener("change", applyChord);
+
+    octaveSelect.addEventListener("change", () => {
+      baseOctave = Number(octaveSelect.value);
+      buildPiano();
+      commitState(false);
+      restartSustainedNotes();
+    });
+
+    volumeSlider.addEventListener("input", () => {
+      if (masterGain) {
+        masterGain.gain.value = Number(volumeSlider.value);
+      }
+    });
+
+    rootOnlyBtn.addEventListener("click", rootOnly);
+    clearBtn.addEventListener("click", clearAll);
+
+    chordAllBtn.addEventListener("click", () => {
+      unmuteAllChordTones();
+      commitState();
+    });
+
+    chordNoneBtn.addEventListener("click", () => {
+      muteAllChordTones();
+      commitState();
+    });
+
+    window.addEventListener("resize", positionBlackKeys);
+
+    initSelectors();
+    buildPiano();
+    commitState(false);
+  </script>
+</body>
+</html>
