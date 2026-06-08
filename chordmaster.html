@@ -1,0 +1,1682 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nopia-like MIDI Bridge</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b0f;
+      --panel: #11151d;
+      --panel-2: #151b24;
+      --line: #273140;
+      --line-strong: #3f4b5f;
+      --text: #eef2f7;
+      --muted: #93a0b4;
+      --dim: #657288;
+      --accent: #74e0c7;
+      --accent-2: #f3c969;
+      --danger: #ff6b7a;
+      --ok: #68d391;
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+      --radius: 8px;
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: "Aptos", "Segoe UI", Candara, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(116, 224, 199, 0.11), transparent 32rem),
+        linear-gradient(145deg, #090b0f 0%, #10131a 48%, #08090d 100%);
+      color: var(--text);
+      font-family: var(--sans);
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #171d27;
+      color: var(--text);
+      min-height: 38px;
+      cursor: pointer;
+      transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: linear-gradient(180deg, #1f6f65, #174f49);
+      border-color: #3fb9a6;
+    }
+
+    button.danger {
+      background: #341820;
+      border-color: #7c2e3c;
+      color: #ffd5da;
+    }
+
+    button.ghost {
+      background: transparent;
+    }
+
+    button.active,
+    .toggle input:checked + span {
+      border-color: var(--accent);
+      background: rgba(116, 224, 199, 0.14);
+      color: var(--accent);
+    }
+
+    select,
+    input[type="number"],
+    input[type="range"] {
+      width: 100%;
+    }
+
+    select,
+    input[type="number"] {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #0c1017;
+      color: var(--text);
+      padding: 0 10px;
+      outline: none;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .app {
+      width: min(1480px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 24px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      min-height: 74px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.2vw, 2rem);
+      font-weight: 750;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(17, 21, 29, 0.85);
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+    }
+
+    .badge::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 16px rgba(255, 107, 122, 0.8);
+    }
+
+    .badge.connected::before {
+      background: var(--ok);
+      box-shadow: 0 0 16px rgba(104, 211, 145, 0.8);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) 320px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 21, 29, 0.92);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:last-child {
+      border-bottom: 0;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      color: var(--accent-2);
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .field label,
+    .range-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .value {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .button-row.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .toggle-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle span {
+      display: grid;
+      place-items: center;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #0c1017;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.85rem;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 14px;
+    }
+
+    .pads {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .pad {
+      min-height: 84px;
+      padding: 10px;
+      text-align: left;
+      background: linear-gradient(180deg, #18202b, #10161f);
+      border-color: #303a4a;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pad::after {
+      content: "";
+      position: absolute;
+      inset: auto 10px 10px auto;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--line-strong);
+    }
+
+    .pad.active::after {
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(116, 224, 199, 0.8);
+    }
+
+    .pad .pad-label {
+      display: block;
+      font-size: 1.1rem;
+      font-weight: 750;
+      color: var(--text);
+    }
+
+    .pad .pad-role {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.25;
+    }
+
+    .chord-display {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .readout {
+      min-height: 92px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #0c1017;
+      padding: 12px;
+    }
+
+    .readout .label {
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+    }
+
+    .readout .main {
+      margin-top: 8px;
+      font-size: 1.35rem;
+      font-weight: 760;
+    }
+
+    .readout .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .monitor {
+      grid-column: 1 / -1;
+    }
+
+    .monitor-list {
+      height: 190px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #07090d;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    .log-line {
+      display: grid;
+      grid-template-columns: 88px 72px 90px minmax(0, 1fr);
+      gap: 10px;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(39, 49, 64, 0.55);
+      color: var(--muted);
+    }
+
+    .log-line:last-child {
+      border-bottom: 0;
+    }
+
+    .log-line strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .learn-note {
+      min-height: 30px;
+      padding: 7px 9px;
+      border-radius: var(--radius);
+      background: rgba(243, 201, 105, 0.1);
+      color: #f8df9d;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      display: none;
+    }
+
+    .learn-note.visible {
+      display: block;
+    }
+
+    .small {
+      min-height: 30px;
+      padding: 0 9px;
+      font-size: 0.78rem;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    @media (max-width: 1120px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .monitor {
+        grid-column: auto;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app {
+        width: min(100% - 18px, 1480px);
+      }
+
+      header,
+      .chord-display,
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      .status-row {
+        justify-content: flex-start;
+      }
+
+      .pads {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .log-line {
+        grid-template-columns: 70px 58px 70px minmax(0, 1fr);
+        gap: 7px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Nopia-like MIDI Bridge</h1>
+        <div class="subtitle">Harmonic remapping instrument for Web MIDI, Web Audio, and static hosting.</div>
+      </div>
+      <div class="status-row">
+        <span id="midiStatus" class="badge">disconnected</span>
+        <button id="enableMidi" class="primary">Enable MIDI</button>
+        <button id="panicTop" class="danger">Panic</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel">
+        <section class="section">
+          <div class="section-title">MIDI</div>
+          <div class="field">
+            <label for="midiInput">Input</label>
+            <select id="midiInput"></select>
+          </div>
+          <div class="field">
+            <label for="midiOutput">Output</label>
+            <select id="midiOutput"></select>
+          </div>
+          <div class="button-row">
+            <button id="refreshMidi">Refresh</button>
+            <button id="learnBase">Learn Base</button>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Harmony</div>
+          <div class="row">
+            <div class="field">
+              <label for="keyRoot">Key</label>
+              <select id="keyRoot"></select>
+            </div>
+            <div class="field">
+              <label for="scale">Scale</label>
+              <select id="scale">
+                <option value="major">Major</option>
+                <option value="naturalMinor">Natural Minor</option>
+                <option value="dorian">Dorian</option>
+                <option value="mixolydian">Mixolydian</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="inputMode">Input Mode</label>
+            <select id="inputMode">
+              <option value="degree">Degree Mode</option>
+              <option value="root">Root Mode</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="inputBaseNote">Base Note</label>
+              <input id="inputBaseNote" type="number" min="0" max="127" step="1">
+            </div>
+            <div class="field">
+              <label for="baseOctave">Base Octave</label>
+              <input id="baseOctave" type="number" min="1" max="6" step="1">
+            </div>
+          </div>
+          <label class="toggle">
+            <input id="wrapDegree" type="checkbox">
+            <span>Wrap degree notes</span>
+          </label>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Output</div>
+          <div class="toggle-grid">
+            <label class="toggle">
+              <input id="internalSound" type="checkbox">
+              <span>Internal</span>
+            </label>
+            <label class="toggle">
+              <input id="midiOutEnabled" type="checkbox">
+              <span>MIDI Out</span>
+            </label>
+            <label class="toggle">
+              <input id="layerBass" type="checkbox">
+              <span id="layerBassLabel">Bass</span>
+            </label>
+            <label class="toggle">
+              <input id="layerPad" type="checkbox">
+              <span>Pad</span>
+            </label>
+            <label class="toggle">
+              <input id="layerArp" type="checkbox">
+              <span id="layerArpLabel">Arp</span>
+            </label>
+            <label class="toggle">
+              <input id="layerKeys" type="checkbox">
+              <span>Keys</span>
+            </label>
+          </div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <div class="panel">
+          <section class="section">
+            <div class="section-title">Function Pads</div>
+            <div id="pads" class="pads"></div>
+          </section>
+        </div>
+
+        <div class="panel">
+          <section class="section">
+            <div class="section-title">Current Chord</div>
+            <div class="chord-display">
+              <div class="readout">
+                <div class="label">Function</div>
+                <div id="functionName" class="main">--</div>
+                <div id="realName" class="sub">Waiting for input</div>
+              </div>
+              <div class="readout">
+                <div class="label">Generated Notes</div>
+                <div id="noteCount" class="main">0 notes</div>
+                <div id="noteNames" class="sub">--</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="panel">
+          <section class="section">
+            <div class="section-title">Last MIDI Input</div>
+            <div class="chord-display">
+              <div class="readout">
+                <div class="label">Message</div>
+                <div id="lastType" class="main">--</div>
+                <div id="lastChannel" class="sub">Channel --</div>
+              </div>
+              <div class="readout">
+                <div class="label">Data</div>
+                <div id="lastData" class="main">--</div>
+                <div id="lastValue" class="sub">Velocity/value --</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <section class="section">
+          <div class="section-title">Performance</div>
+          <div id="rangeControls"></div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Modes</div>
+          <div class="field">
+            <label for="arpPattern">Arp Pattern</label>
+            <select id="arpPattern">
+              <option value="up">Up</option>
+              <option value="down">Down</option>
+              <option value="upDown">Up Down</option>
+              <option value="random">Random</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="waveform">Internal Wave</label>
+            <select id="waveform">
+              <option value="triangle">Triangle</option>
+              <option value="sine">Sine</option>
+              <option value="sawtooth">Saw</option>
+              <option value="square">Square</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-title">MIDI Learn</div>
+          <div id="learnStatus" class="learn-note"></div>
+          <div class="button-row">
+            <button class="small" data-learn-action="toggleInternal">Internal</button>
+            <button class="small" data-learn-action="toggleMidiOut">MIDI Out</button>
+            <button class="small" data-learn-action="toggleBass">Bass</button>
+            <button class="small" data-learn-action="toggleArp">Arp</button>
+            <button class="small" data-learn-action="togglePad">Pad</button>
+            <button class="small" data-learn-action="panic">Panic</button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel monitor">
+        <section class="section">
+          <div class="section-title">
+            <span>MIDI Monitor</span>
+            <span class="button-row three">
+              <button id="panicBottom" class="small danger">Panic</button>
+              <button id="allNotesOff" class="small">All Off</button>
+              <button id="clearLog" class="small ghost">Clear</button>
+            </span>
+          </div>
+          <div id="monitor" class="monitor-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    "use strict";
+
+    /* Constants */
+    const NOTE_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+    const SCALES = {
+      major: [0, 2, 4, 5, 7, 9, 11],
+      naturalMinor: [0, 2, 3, 5, 7, 8, 10],
+      dorian: [0, 2, 3, 5, 7, 9, 10],
+      mixolydian: [0, 2, 4, 5, 7, 9, 10]
+    };
+    const DEGREE_MAP_MAJOR = [
+      { label: "I", rootOffset: 0, quality: "maj", role: "tonic" },
+      { label: "bII", rootOffset: 1, quality: "maj", role: "neapolitan color" },
+      { label: "ii", rootOffset: 2, quality: "min", role: "predominant" },
+      { label: "V/vi", rootOffset: 4, quality: "dom", role: "secondary dominant" },
+      { label: "iii", rootOffset: 4, quality: "min", role: "tonic color" },
+      { label: "IV", rootOffset: 5, quality: "maj", role: "predominant" },
+      { label: "V/V", rootOffset: 2, quality: "dom", role: "secondary dominant" },
+      { label: "V", rootOffset: 7, quality: "dom", role: "dominant" },
+      { label: "bVI", rootOffset: 8, quality: "maj", role: "borrowed" },
+      { label: "vi", rootOffset: 9, quality: "min", role: "tonic color" },
+      { label: "bVII", rootOffset: 10, quality: "maj", role: "borrowed" },
+      { label: "vii dim", rootOffset: 11, quality: "dim", role: "leading tone" }
+    ];
+    const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+    const CHORD_INTERVALS = {
+      maj: {
+        0: [0, 4, 7],
+        1: [0, 4, 7, 11],
+        2: [0, 4, 7, 11, 14],
+        3: [0, 7, 11, 14, 16]
+      },
+      min: {
+        0: [0, 3, 7],
+        1: [0, 3, 7, 10],
+        2: [0, 3, 7, 10, 14],
+        3: [0, 7, 10, 14, 15]
+      },
+      dom: {
+        0: [0, 4, 7],
+        1: [0, 4, 7, 10],
+        2: [0, 4, 7, 10, 14],
+        3: [0, 10, 14, 16, 19]
+      },
+      dim: {
+        0: [0, 3, 6],
+        1: [0, 3, 6, 10],
+        2: [0, 3, 6, 10, 13],
+        3: [0, 6, 10, 13, 15]
+      }
+    };
+    const STORAGE_KEY = "chordmaster-midi-bridge-v01";
+
+    const rangeSpecs = [
+      { key: "complexity", label: "Complexity", min: 0, max: 3, step: 1 },
+      { key: "voicing", label: "Voicing", min: 0, max: 3, step: 1 },
+      { key: "spread", label: "Spread", min: 0, max: 3, step: 1 },
+      { key: "strum", label: "Strum", min: 0, max: 90, step: 1, suffix: "ms" },
+      { key: "arpRate", label: "Arp Rate", min: 1, max: 6, step: 1 },
+      { key: "bassMode", label: "Bass Mode", min: 0, max: 4, step: 1 },
+      { key: "humanize", label: "Humanize", min: 0, max: 32, step: 1, suffix: "ms" },
+      { key: "volume", label: "Volume", min: 0, max: 1, step: 0.01 }
+    ];
+
+    /* State */
+    const state = {
+      midiAccess: null,
+      midiInput: null,
+      midiOutput: null,
+      keyRoot: 0,
+      scale: "major",
+      inputMode: "degree",
+      inputBaseNote: 48,
+      baseOctave: 3,
+      wrapDegree: true,
+      complexity: 1,
+      voicing: 0,
+      spread: 0,
+      strum: 0,
+      arpRate: 2,
+      bassMode: 1,
+      humanize: 0,
+      volume: 0.42,
+      internalSound: true,
+      midiOutEnabled: false,
+      arpPattern: "up",
+      waveform: "triangle",
+      layers: { keys: true, bass: true, arp: false, pad: false },
+      activeVoices: new Map(),
+      previousVoicing: null,
+      midiLearn: null,
+      ccMap: {},
+      noteMap: {},
+      log: []
+    };
+
+    const audio = {
+      ctx: null,
+      master: null,
+      voices: new Map(),
+      nextId: 1
+    };
+
+    const dom = {};
+
+    document.addEventListener("DOMContentLoaded", init);
+
+    function init() {
+      cacheDom();
+      loadState();
+      buildStaticUi();
+      bindUi();
+      syncUi();
+      renderPads();
+      renderMonitor();
+      updateMidiStatus();
+      if (!navigator.requestMIDIAccess) {
+        logMessage("system", "--", "--", "Web MIDI API is unavailable in this browser.");
+      }
+    }
+
+    function cacheDom() {
+      [
+        "midiStatus", "enableMidi", "panicTop", "panicBottom", "allNotesOff", "refreshMidi",
+        "midiInput", "midiOutput", "learnBase", "keyRoot", "scale", "inputMode", "inputBaseNote",
+        "baseOctave", "wrapDegree", "internalSound", "midiOutEnabled", "layerKeys", "layerBass",
+        "layerBassLabel", "layerArp", "layerArpLabel", "layerPad", "pads", "functionName", "realName", "noteCount", "noteNames",
+        "lastType", "lastChannel", "lastData", "lastValue", "rangeControls", "arpPattern",
+        "waveform", "learnStatus", "monitor", "clearLog"
+      ].forEach((id) => { dom[id] = document.getElementById(id); });
+    }
+
+    function buildStaticUi() {
+      NOTE_NAMES.forEach((name, pc) => {
+        dom.keyRoot.appendChild(new Option(name, String(pc)));
+      });
+
+      rangeSpecs.forEach((spec) => {
+        const field = document.createElement("div");
+        field.className = "field";
+        field.innerHTML = `
+          <div class="range-head">
+            <span>${spec.label}</span>
+            <span class="value" id="${spec.key}Value"></span>
+          </div>
+          <div class="mini-grid">
+            <input id="${spec.key}" type="range" min="${spec.min}" max="${spec.max}" step="${spec.step}">
+            <button class="small" data-learn-param="${spec.key}">Learn</button>
+          </div>
+        `;
+        dom.rangeControls.appendChild(field);
+        dom[spec.key] = field.querySelector(`#${spec.key}`);
+        dom[`${spec.key}Value`] = field.querySelector(`#${spec.key}Value`);
+      });
+    }
+
+    function bindUi() {
+      dom.enableMidi.addEventListener("click", enableMidi);
+      dom.refreshMidi.addEventListener("click", refreshMidiDevices);
+      dom.midiInput.addEventListener("change", selectMidiInput);
+      dom.midiOutput.addEventListener("change", selectMidiOutput);
+      dom.learnBase.addEventListener("click", () => startLearn({ type: "baseNote" }));
+      dom.panicTop.addEventListener("click", panic);
+      dom.panicBottom.addEventListener("click", panic);
+      dom.allNotesOff.addEventListener("click", sendAllNotesOff);
+      dom.clearLog.addEventListener("click", () => {
+        state.log = [];
+        renderMonitor();
+      });
+
+      ["keyRoot", "scale", "inputMode", "inputBaseNote", "baseOctave", "arpPattern", "waveform"].forEach((key) => {
+        dom[key].addEventListener("change", () => {
+          state[key] = coerceValue(key, dom[key].value);
+          if (key === "arpPattern") refreshActiveLayer("arp");
+          state.previousVoicing = null;
+          persistState();
+          renderPads();
+          syncUi();
+        });
+      });
+
+      ["wrapDegree", "internalSound", "midiOutEnabled"].forEach((key) => {
+        dom[key].addEventListener("change", () => {
+          state[key] = dom[key].checked;
+          persistState();
+          syncUi();
+        });
+      });
+
+      [
+        ["layerKeys", "keys"],
+        ["layerBass", "bass"],
+        ["layerArp", "arp"],
+        ["layerPad", "pad"]
+      ].forEach(([id, layer]) => {
+        dom[id].addEventListener("change", () => {
+          state.layers[layer] = dom[id].checked;
+          if (layer === "bass") state.bassMode = state.layers.bass ? Math.max(1, state.bassMode) : 0;
+          if (layer === "bass" || layer === "arp") refreshActiveLayer(layer);
+          persistState();
+          syncUi();
+        });
+      });
+
+      rangeSpecs.forEach((spec) => {
+        dom[spec.key].addEventListener("input", () => {
+          state[spec.key] = coerceValue(spec.key, dom[spec.key].value);
+          if (spec.key === "bassMode") state.layers.bass = state.bassMode > 0;
+          if (spec.key === "bassMode") refreshActiveLayer("bass");
+          if (spec.key === "arpRate") refreshActiveLayer("arp");
+          persistState();
+          syncUi();
+          renderPads();
+        });
+      });
+
+      document.querySelectorAll("[data-learn-param]").forEach((button) => {
+        button.addEventListener("click", () => startLearn({ type: "param", target: button.dataset.learnParam }));
+      });
+
+      document.querySelectorAll("[data-learn-action]").forEach((button) => {
+        button.addEventListener("click", () => startLearn({ type: "action", target: button.dataset.learnAction }));
+      });
+    }
+
+    function syncUi() {
+      dom.keyRoot.value = String(state.keyRoot);
+      dom.scale.value = state.scale;
+      dom.inputMode.value = state.inputMode;
+      dom.inputBaseNote.value = String(state.inputBaseNote);
+      dom.baseOctave.value = String(state.baseOctave);
+      dom.wrapDegree.checked = state.wrapDegree;
+      dom.internalSound.checked = state.internalSound;
+      dom.midiOutEnabled.checked = state.midiOutEnabled;
+      dom.layerKeys.checked = state.layers.keys;
+      dom.layerBass.checked = state.layers.bass;
+      dom.layerArp.checked = state.layers.arp;
+      dom.layerBassLabel.textContent = state.layers.bass ? `Bass: ${["Off", "Root", "Root + 5th", "Approach", "Walk"][state.bassMode] || "Root"}` : "Bass: Off";
+      dom.layerArpLabel.textContent = state.layers.arp ? `Arp: ${formatArpPattern(state.arpPattern)}` : "Arp: Off";
+      dom.layerPad.checked = state.layers.pad;
+      dom.arpPattern.value = state.arpPattern;
+      dom.waveform.value = state.waveform;
+      rangeSpecs.forEach((spec) => {
+        dom[spec.key].value = String(state[spec.key]);
+        dom[`${spec.key}Value`].textContent = formatRangeValue(spec, state[spec.key]);
+      });
+      if (audio.ctx && audio.master) {
+        audio.master.gain.setTargetAtTime(state.volume, audio.ctx.currentTime, 0.01);
+      }
+      updateLearnStatus();
+    }
+
+    function coerceValue(key, value) {
+      if (["keyRoot", "inputBaseNote", "baseOctave", "complexity", "voicing", "spread", "strum", "arpRate", "bassMode", "humanize"].includes(key)) {
+        return Number.parseInt(value, 10);
+      }
+      if (key === "volume") return Number.parseFloat(value);
+      return value;
+    }
+
+    function formatRangeValue(spec, value) {
+      if (spec.key === "bassMode") {
+        return ["off", "root", "root+5", "approach", "walk"][value] || String(value);
+      }
+      if (spec.key === "volume") return `${Math.round(value * 100)}%`;
+      return `${value}${spec.suffix || ""}`;
+    }
+
+    /* Persistence */
+    function persistState() {
+      const snapshot = {};
+      [
+        "keyRoot", "scale", "inputMode", "inputBaseNote", "baseOctave", "wrapDegree",
+        "complexity", "voicing", "spread", "strum", "arpRate", "bassMode", "humanize",
+        "volume", "internalSound", "midiOutEnabled", "layers", "arpPattern", "waveform",
+        "ccMap", "noteMap"
+      ].forEach((key) => { snapshot[key] = state[key]; });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    }
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+        Object.assign(state, saved);
+        state.layers = Object.assign({ keys: true, bass: true, arp: false, pad: false }, saved.layers || {});
+        state.layers.bass = state.bassMode > 0 && state.layers.bass;
+        state.ccMap = saved.ccMap || {};
+        state.noteMap = saved.noteMap || {};
+      } catch (error) {
+        console.warn("Could not load state", error);
+      }
+    }
+
+    /* MIDI */
+    async function enableMidi() {
+      try {
+        await ensureAudio();
+        if (!navigator.requestMIDIAccess) {
+          throw new Error("Web MIDI API is not available.");
+        }
+        state.midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+        state.midiAccess.onstatechange = refreshMidiDevices;
+        refreshMidiDevices();
+        logMessage("system", "--", "--", "Web MIDI enabled.");
+      } catch (error) {
+        logMessage("error", "--", "--", error.message);
+      }
+      updateMidiStatus();
+    }
+
+    function refreshMidiDevices() {
+      if (!state.midiAccess) {
+        fillSelect(dom.midiInput, [], "No MIDI access");
+        fillSelect(dom.midiOutput, [], "No MIDI access");
+        updateMidiStatus();
+        return;
+      }
+      const inputs = [...state.midiAccess.inputs.values()];
+      const outputs = [...state.midiAccess.outputs.values()];
+      fillSelect(dom.midiInput, inputs, "No inputs");
+      fillSelect(dom.midiOutput, outputs, "No outputs");
+      selectMidiInput();
+      selectMidiOutput();
+      updateMidiStatus();
+    }
+
+    function fillSelect(select, devices, emptyText) {
+      const previous = select.value;
+      select.innerHTML = "";
+      if (!devices.length) {
+        select.appendChild(new Option(emptyText, ""));
+        return;
+      }
+      devices.forEach((device) => {
+        const label = `${device.name || "MIDI device"}${device.manufacturer ? ` - ${device.manufacturer}` : ""}`;
+        select.appendChild(new Option(label, device.id));
+      });
+      if ([...select.options].some((option) => option.value === previous)) select.value = previous;
+    }
+
+    function selectMidiInput() {
+      if (state.midiInput && state.midiInput.id !== dom.midiInput.value) panic();
+      if (state.midiInput) state.midiInput.onmidimessage = null;
+      state.midiInput = state.midiAccess ? state.midiAccess.inputs.get(dom.midiInput.value) || null : null;
+      if (state.midiInput) state.midiInput.onmidimessage = handleMidiMessage;
+      updateMidiStatus();
+    }
+
+    function selectMidiOutput() {
+      if (state.midiOutput && state.midiOutput.id !== dom.midiOutput.value) panic();
+      state.midiOutput = state.midiAccess ? state.midiAccess.outputs.get(dom.midiOutput.value) || null : null;
+      updateMidiStatus();
+    }
+
+    function updateMidiStatus() {
+      const connected = Boolean(state.midiInput || state.midiOutput);
+      dom.midiStatus.classList.toggle("connected", connected);
+      dom.midiStatus.textContent = connected ? "connected" : "disconnected";
+    }
+
+    function handleMidiMessage(event) {
+      const [status, data1 = 0, data2 = 0] = event.data;
+      const command = status & 0xf0;
+      const channel = (status & 0x0f) + 1;
+      if (command === 0x90 && data2 > 0) {
+        updateLastInput("note on", channel, midiToName(data1), data2);
+        if (consumeLearn("note", channel, data1, data2)) return;
+        if (runMappedNoteAction(channel, data1)) return;
+        handleHarmonicTrigger(data1, data2, `midi:${channel}`);
+      } else if (command === 0x80 || (command === 0x90 && data2 === 0)) {
+        updateLastInput("note off", channel, midiToName(data1), data2);
+        stopHarmonicTrigger(data1, `midi:${channel}`);
+      } else if (command === 0xb0) {
+        updateLastInput("cc", channel, `CC ${data1}`, data2);
+        if (consumeLearn("cc", channel, data1, data2)) return;
+        applyMappedCc(channel, data1, data2);
+      } else if (command === 0xe0) {
+        const bend = ((data2 << 7) | data1) - 8192;
+        updateLastInput("pitch bend", channel, "bend", bend);
+      } else {
+        updateLastInput(`0x${command.toString(16)}`, channel, data1, data2);
+      }
+    }
+
+    function startLearn(request) {
+      state.midiLearn = request;
+      updateLearnStatus();
+    }
+
+    function updateLearnStatus() {
+      if (!state.midiLearn) {
+        dom.learnStatus.classList.remove("visible");
+        dom.learnStatus.textContent = "";
+        return;
+      }
+      dom.learnStatus.classList.add("visible");
+      if (state.midiLearn.type === "baseNote") {
+        dom.learnStatus.textContent = "Learning base note: play the MIDI note that should become index 0.";
+      } else if (state.midiLearn.type === "param") {
+        dom.learnStatus.textContent = `Learning CC for ${state.midiLearn.target}. Move a knob/fader.`;
+      } else {
+        dom.learnStatus.textContent = `Learning action ${state.midiLearn.target}. Send a CC or note.`;
+      }
+    }
+
+    function consumeLearn(kind, channel, number, value) {
+      if (!state.midiLearn) return false;
+      const learn = state.midiLearn;
+      if (learn.type === "baseNote" && kind === "note") {
+        state.inputBaseNote = clamp(number, 0, 127);
+        state.midiLearn = null;
+        persistState();
+        syncUi();
+        renderPads();
+        logMessage("learn", channel, midiToName(number), "Base note assigned.");
+        return true;
+      }
+      if (learn.type === "param" && kind === "cc") {
+        state.ccMap[`${channel}:${number}`] = { type: "param", target: learn.target };
+        state.midiLearn = null;
+        persistState();
+        syncUi();
+        logMessage("learn", channel, `CC ${number}`, `Assigned to ${learn.target}.`);
+        return true;
+      }
+      if (learn.type === "action" && (kind === "cc" || kind === "note") && value > 0) {
+        const map = { type: "action", target: learn.target };
+        if (kind === "cc") state.ccMap[`${channel}:${number}`] = map;
+        if (kind === "note") state.noteMap[`${channel}:${number}`] = map;
+        state.midiLearn = null;
+        persistState();
+        syncUi();
+        logMessage("learn", channel, kind === "cc" ? `CC ${number}` : midiToName(number), `Assigned to ${learn.target}.`);
+        return true;
+      }
+      return false;
+    }
+
+    function applyMappedCc(channel, cc, value) {
+      const mapped = state.ccMap[`${channel}:${cc}`] || state.ccMap[`any:${cc}`];
+      if (!mapped) return;
+      if (mapped.type === "param") {
+        setMappedParam(mapped.target, value);
+      } else if (mapped.type === "action" && value >= 64) {
+        runAction(mapped.target);
+      }
+    }
+
+    function runMappedNoteAction(channel, note) {
+      const mapped = state.noteMap[`${channel}:${note}`];
+      if (!mapped || mapped.type !== "action") return false;
+      runAction(mapped.target);
+      return true;
+    }
+
+    function setMappedParam(param, ccValue) {
+      const spec = rangeSpecs.find((item) => item.key === param);
+      if (!spec) return;
+      state[param] = scaleCC(ccValue, spec.min, spec.max, spec.step >= 1);
+      if (param === "bassMode") {
+        state.layers.bass = state.bassMode > 0;
+        refreshActiveLayer("bass");
+      }
+      if (param === "arpRate") refreshActiveLayer("arp");
+      persistState();
+      syncUi();
+      renderPads();
+    }
+
+    function runAction(action) {
+      if (action === "toggleInternal") state.internalSound = !state.internalSound;
+      if (action === "toggleMidiOut") state.midiOutEnabled = !state.midiOutEnabled;
+      if (action === "toggleBass") {
+        state.layers.bass = !state.layers.bass;
+        state.bassMode = state.layers.bass ? Math.max(1, state.bassMode) : 0;
+        refreshActiveLayer("bass");
+      }
+      if (action === "toggleArp") {
+        state.layers.arp = !state.layers.arp;
+        refreshActiveLayer("arp");
+      }
+      if (action === "togglePad") state.layers.pad = !state.layers.pad;
+      if (action === "panic") panic();
+      persistState();
+      syncUi();
+    }
+
+    /* Harmony */
+    function handleHarmonicTrigger(inputNote, velocity, source) {
+      const voiceKey = `${source}:${inputNote}`;
+      stopHarmonicTrigger(inputNote, source);
+      if (state.internalSound) {
+        ensureAudio().catch((error) => logMessage("audio", "--", "--", error.message));
+      }
+
+      const index = getInputIndex(inputNote);
+      if (index == null) return;
+
+      const chordInfo = state.inputMode === "degree"
+        ? getDegreeChord(index, state.keyRoot, state.scale, state.complexity)
+        : getRootChord(inputNote, state.complexity);
+
+      const keysNotes = buildVoicing(chordInfo.intervals, {
+        rootPc: chordInfo.rootPc,
+        baseOctave: state.baseOctave,
+        voicing: state.voicing,
+        spread: state.spread,
+        maxNotes: state.complexity >= 2 ? 5 : 4,
+        previousVoicing: state.previousVoicing
+      });
+      state.previousVoicing = keysNotes.slice();
+
+      const group = {
+        inputNote,
+        chordInfo,
+        velocity,
+        voicing: keysNotes,
+        keys: null,
+        bass: null,
+        pad: null,
+        arp: null
+      };
+
+      if (state.layers.keys) group.keys = playLayer("keys", keysNotes, velocity, 1, { strum: state.strum });
+      const bassNotes = state.layers.bass ? buildBass(chordInfo.rootPc, chordInfo, state.bassMode) : [];
+      if (bassNotes.length) group.bass = playLayer("bass", bassNotes, Math.round(velocity * 0.9), 2, { strum: 0 });
+      if (state.layers.pad) {
+        const padNotes = buildVoicing(chordInfo.intervals, {
+          rootPc: chordInfo.rootPc,
+          baseOctave: state.baseOctave + 1,
+          voicing: state.voicing,
+          spread: state.spread + 1,
+          maxNotes: 5,
+          previousVoicing: null
+        });
+        group.pad = playLayer("pad", padNotes, Math.round(velocity * 0.58), 4, { strum: state.strum + 8 });
+      }
+      if (state.layers.arp) group.arp = startArp(keysNotes, velocity, voiceKey);
+
+      state.activeVoices.set(voiceKey, group);
+      renderChord(chordInfo, keysNotes, bassNotes);
+      setPadActive(index, true);
+      logMessage("trigger", source.replace("midi:", "ch "), midiToName(inputNote), `${chordInfo.label} -> ${chordInfo.name}`);
+    }
+
+    function stopHarmonicTrigger(inputNote, source) {
+      const voiceKey = `${source}:${inputNote}`;
+      const group = state.activeVoices.get(voiceKey);
+      if (!group) return;
+      stopLayer(group.keys);
+      stopLayer(group.bass);
+      stopLayer(group.pad);
+      stopArp(group.arp);
+      state.activeVoices.delete(voiceKey);
+      const index = getInputIndex(inputNote);
+      if (index != null) setPadActive(index, false);
+    }
+
+    function refreshActiveLayer(layer) {
+      state.activeVoices.forEach((group, voiceKey) => {
+        if (layer === "bass") {
+          stopLayer(group.bass);
+          group.bass = null;
+          const bassNotes = state.layers.bass ? buildBass(group.chordInfo.rootPc, group.chordInfo, state.bassMode) : [];
+          if (bassNotes.length) group.bass = playLayer("bass", bassNotes, Math.round(group.velocity * 0.9), 2, { strum: 0 });
+        }
+        if (layer === "arp") {
+          stopArp(group.arp);
+          group.arp = state.layers.arp ? startArp(group.voicing, group.velocity, voiceKey) : null;
+        }
+      });
+    }
+
+    function getInputIndex(note) {
+      if (state.inputMode === "root") return mod(note, 12);
+      const offset = note - state.inputBaseNote;
+      if (!state.wrapDegree && (offset < 0 || offset > 11)) return null;
+      return mod(offset, 12);
+    }
+
+    function getDegreeChord(index, keyRoot, scaleName, complexity) {
+      if (scaleName === "major") {
+        const item = DEGREE_MAP_MAJOR[index];
+        return chordFromMapItem(item, keyRoot, complexity);
+      }
+      const intervals = SCALES[scaleName] || SCALES.major;
+      const degree = index % 7;
+      const rootOffset = intervals[degree];
+      const quality = inferDiatonicQuality(rootOffset, intervals);
+      const label = quality === "min" ? ROMAN[degree].toLowerCase() : quality === "dim" ? `${ROMAN[degree].toLowerCase()} dim` : ROMAN[degree];
+      return chordFromMapItem({ label, rootOffset, quality, role: "diatonic" }, keyRoot, complexity);
+    }
+
+    function chordFromMapItem(item, keyRoot, complexity) {
+      const rootPc = mod(keyRoot + item.rootOffset, 12);
+      const intervals = CHORD_INTERVALS[item.quality][complexity] || CHORD_INTERVALS[item.quality][1];
+      return {
+        label: item.label,
+        rootPc,
+        quality: item.quality,
+        role: item.role,
+        intervals,
+        name: `${pcToName(rootPc)}${qualitySuffix(item.quality, complexity)}`
+      };
+    }
+
+    function getRootChord(inputNote, complexity) {
+      const rootPc = mod(inputNote, 12);
+      const quality = inferQualityForPc(rootPc, state.keyRoot, state.scale);
+      const intervals = CHORD_INTERVALS[quality][complexity] || CHORD_INTERVALS[quality][1];
+      return {
+        label: pcToName(rootPc),
+        rootPc,
+        quality,
+        role: "absolute root",
+        intervals,
+        name: `${pcToName(rootPc)}${qualitySuffix(quality, complexity)}`
+      };
+    }
+
+    function inferDiatonicQuality(rootOffset, scaleIntervals) {
+      const third = mod(rootOffset + 4, 12);
+      const flatThird = mod(rootOffset + 3, 12);
+      const fifth = mod(rootOffset + 7, 12);
+      const flatFifth = mod(rootOffset + 6, 12);
+      if (scaleIntervals.includes(flatThird) && scaleIntervals.includes(flatFifth)) return "dim";
+      if (scaleIntervals.includes(flatThird) && scaleIntervals.includes(fifth)) return "min";
+      return "maj";
+    }
+
+    function inferQualityForPc(rootPc, keyRoot, scaleName) {
+      const scale = SCALES[scaleName] || SCALES.major;
+      const relative = mod(rootPc - keyRoot, 12);
+      if (!scale.includes(relative)) return "maj";
+      return inferDiatonicQuality(relative, scale);
+    }
+
+    function qualitySuffix(quality, complexity) {
+      const suffixes = {
+        maj: ["maj", "maj7", "maj9", "maj9"],
+        min: ["m", "m7", "m9", "m11"],
+        dom: ["", "7", "9", "13"],
+        dim: ["dim", "dim7", "dim9", "dim11"]
+      };
+      return suffixes[quality][complexity] || "";
+    }
+
+    /* Voicing */
+    function buildVoicing(chordIntervals, options) {
+      const rootMidi = nearestMidiForPc(options.rootPc, (options.baseOctave + 1) * 12);
+      let source = chordIntervals
+        .slice(0, options.maxNotes || chordIntervals.length)
+        .map((interval) => rootMidi + interval)
+        .sort((a, b) => a - b);
+
+      while (source[0] < 48) source = source.map((note) => note + 12);
+      while (source[0] > 64) source = source.map((note) => note - 12);
+
+      const candidates = [];
+      for (let inv = 0; inv < Math.min(source.length, 4); inv += 1) {
+        let candidate = source.slice();
+        for (let i = 0; i < inv; i += 1) {
+          candidate.push(candidate.shift() + 12);
+        }
+        candidate = candidate.map((note, idx) => note + (idx > 0 ? 12 * Math.min(options.spread, idx % 2 === 0 ? 2 : 1) : 0));
+        if (options.voicing > 0) candidate = candidate.map((note, idx) => note + (idx < options.voicing ? 12 : 0));
+        candidate.sort((a, b) => a - b);
+        candidate = fixLowCluster(candidate);
+        candidates.push(candidate);
+      }
+
+      if (!options.previousVoicing || !options.previousVoicing.length) {
+        return clampMidiNotes(candidates[options.voicing % candidates.length] || candidates[0]);
+      }
+      candidates.sort((a, b) => voiceLeadingCost(a, options.previousVoicing) - voiceLeadingCost(b, options.previousVoicing));
+      return clampMidiNotes(candidates[0]);
+    }
+
+    function fixLowCluster(notes) {
+      const result = notes.slice();
+      if (result.length > 1 && result[0] < 52 && result[1] - result[0] < 7) result[0] += 12;
+      result.sort((a, b) => a - b);
+      return result;
+    }
+
+    function voiceLeadingCost(candidate, previous) {
+      return candidate.reduce((sum, note, idx) => {
+        const target = previous[Math.min(idx, previous.length - 1)];
+        return sum + Math.abs(note - target);
+      }, 0);
+    }
+
+    function buildBass(rootPc, chordInfo, bassMode) {
+      if (bassMode <= 0) return [];
+      const root = nearestMidiForPc(rootPc, 36);
+      if (bassMode === 1) return [root];
+      if (bassMode === 2) return [root, root + 7];
+      if (bassMode === 3) return [root - 1, root];
+      return [root, root + 4, root + 7, root + 10].filter((note) => note <= 52);
+    }
+
+    /* Performance */
+    function playLayer(layer, notes, velocity, channel, options) {
+      const group = {
+        layer,
+        channel,
+        midiNotes: [],
+        audioIds: [],
+        timeouts: [],
+        cancelled: false
+      };
+      notes.forEach((note, index) => {
+        const delay = Math.max(0, (options.strum || 0) * index + randomHumanize());
+        const timeoutId = window.setTimeout(() => {
+          if (group.cancelled) return;
+          sendNoteOn(note, velocity, channel);
+          if (state.midiOutEnabled && state.midiOutput) group.midiNotes.push(note);
+          if (state.internalSound) group.audioIds.push(playAudioNote(note, velocity, layer));
+        }, delay);
+        group.timeouts.push(timeoutId);
+      });
+      return group;
+    }
+
+    function stopLayer(group) {
+      if (!group) return;
+      group.cancelled = true;
+      group.timeouts.forEach((id) => clearTimeout(id));
+      group.midiNotes.forEach((note) => sendNoteOff(note, group.channel, true));
+      group.audioIds.forEach(stopAudioNote);
+    }
+
+    function startArp(notes, velocity, voiceKey) {
+      if (!notes.length) return null;
+      const group = {
+        notes: notes.slice(),
+        velocity,
+        voiceKey,
+        step: 0,
+        direction: 1,
+        activeMidi: [],
+        activeAudio: [],
+        timeouts: [],
+        intervalId: null
+      };
+      const tick = () => playArpTick(group);
+      tick();
+      group.intervalId = window.setInterval(tick, arpIntervalMs());
+      return group;
+    }
+
+    function playArpTick(group) {
+      const note = pickArpNote(group);
+      const velocity = Math.max(1, Math.round(group.velocity * 0.72));
+      sendNoteOn(note, velocity, 3);
+      if (state.midiOutEnabled && state.midiOutput) group.activeMidi.push(note);
+      if (state.internalSound) group.activeAudio.push(playAudioNote(note, velocity, "arp"));
+      const timeoutId = window.setTimeout(() => {
+        sendNoteOff(note, 3, true);
+        group.activeMidi = group.activeMidi.filter((item) => item !== note);
+        const audioId = group.activeAudio.shift();
+        if (audioId) stopAudioNote(audioId);
+      }, Math.max(80, arpIntervalMs() * 0.58));
+      group.timeouts.push(timeoutId);
+    }
+
+    function pickArpNote(group) {
+      const notes = group.notes;
+      if (state.arpPattern === "random") return notes[Math.floor(Math.random() * notes.length)];
+      if (state.arpPattern === "down") {
+        const note = notes[notes.length - 1 - (group.step % notes.length)];
+        group.step += 1;
+        return note;
+      }
+      if (state.arpPattern === "upDown") {
+        const note = notes[group.step];
+        group.step += group.direction;
+        if (group.step >= notes.length - 1 || group.step <= 0) group.direction *= -1;
+        return note;
+      }
+      const note = notes[group.step % notes.length];
+      group.step += 1;
+      return note;
+    }
+
+    function stopArp(group) {
+      if (!group) return;
+      clearInterval(group.intervalId);
+      group.timeouts.forEach((id) => clearTimeout(id));
+      group.activeMidi.forEach((note) => sendNoteOff(note, 3, true));
+      group.activeAudio.forEach(stopAudioNote);
+    }
+
+    function arpIntervalMs() {
+      return [900, 650, 460, 320, 220, 150][clamp(state.arpRate, 1, 6) - 1];
+    }
+
+    function randomHumanize() {
+      if (!state.humanize) return 0;
+      return Math.round((Math.random() * 2 - 1) * state.humanize);
+    }
+
+    function panic() {
+      for (const key of [...state.activeVoices.keys()]) {
+        const group = state.activeVoices.get(key);
+        stopLayer(group.keys);
+        stopLayer(group.bass);
+        stopLayer(group.pad);
+        stopArp(group.arp);
+      }
+      state.activeVoices.clear();
+      [...audio.voices.keys()].forEach(stopAudioNote);
+      sendAllNotesOff();
+      document.querySelectorAll(".pad.active").forEach((pad) => pad.classList.remove("active"));
+      logMessage("panic", "--", "--", "All generated notes stopped.");
+    }
+
+    /* MIDI output */
+    function sendNoteOn(note, velocity, channel) {
+      if (!state.midiOutEnabled || !state.midiOutput) return;
+      state.midiOutput.send([0x90 + (channel - 1), clamp(Math.round(note), 0, 127), clamp(Math.round(velocity), 1, 127)]);
+    }
+
+    function sendNoteOff(note, channel, force) {
+      if (!force && (!state.midiOutEnabled || !state.midiOutput)) return;
+      if (!state.midiOutput) return;
+      state.midiOutput.send([0x80 + (channel - 1), clamp(Math.round(note), 0, 127), 0]);
+    }
+
+    function sendAllNotesOff() {
+      if (!state.midiOutput) return;
+      for (let channel = 1; channel <= 4; channel += 1) {
+        state.midiOutput.send([0xb0 + (channel - 1), 123, 0]);
+        for (let note = 0; note < 128; note += 1) sendNoteOff(note, channel, true);
+      }
+    }
+
+    /* Web Audio */
+    async function ensureAudio() {
+      if (!audio.ctx) {
+        audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audio.master = audio.ctx.createGain();
+        audio.master.gain.value = state.volume;
+        audio.master.connect(audio.ctx.destination);
+      }
+      if (audio.ctx.state === "suspended") await audio.ctx.resume();
+      if (audio.master) audio.master.gain.setTargetAtTime(state.volume, audio.ctx.currentTime, 0.01);
+    }
+
+    function playAudioNote(note, velocity, layer) {
+      if (!audio.ctx || !audio.master) return null;
+      const now = audio.ctx.currentTime;
+      const osc = audio.ctx.createOscillator();
+      const gain = audio.ctx.createGain();
+      const id = audio.nextId++;
+      const layerGain = layer === "bass" ? 0.9 : layer === "pad" ? 0.42 : layer === "arp" ? 0.5 : 0.62;
+      const attack = layer === "pad" ? 0.12 : 0.012;
+      const peak = (velocity / 127) * layerGain;
+
+      osc.type = layer === "bass" ? "sawtooth" : layer === "arp" ? "square" : layer === "pad" ? "sine" : state.waveform;
+      osc.frequency.value = midiToFrequency(note);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), now + attack);
+      osc.connect(gain);
+      gain.connect(audio.master);
+      osc.start(now);
+      audio.voices.set(id, { osc, gain, layer });
+      return id;
+    }
+
+    function stopAudioNote(id) {
+      const voice = audio.voices.get(id);
+      if (!voice || !audio.ctx) return;
+      const now = audio.ctx.currentTime;
+      const release = voice.layer === "pad" ? 0.36 : 0.09;
+      voice.gain.gain.cancelScheduledValues(now);
+      voice.gain.gain.setTargetAtTime(0.0001, now, release / 4);
+      voice.osc.stop(now + release);
+      voice.osc.onended = () => {
+        voice.osc.disconnect();
+        voice.gain.disconnect();
+      };
+      audio.voices.delete(id);
+    }
+
+    /* UI rendering */
+    function renderPads() {
+      dom.pads.innerHTML = "";
+      for (let index = 0; index < 12; index += 1) {
+        const chord = state.inputMode === "degree"
+          ? getDegreeChord(index, state.keyRoot, state.scale, state.complexity)
+          : getRootChord(index, state.complexity);
+        const button = document.createElement("button");
+        button.className = "pad";
+        button.dataset.index = String(index);
+        button.innerHTML = `<span class="pad-label">${chord.label}</span><span class="pad-role">${chord.name} / ${chord.role}</span>`;
+        bindPad(button, index);
+        dom.pads.appendChild(button);
+      }
+    }
+
+    function bindPad(button, index) {
+      const note = state.inputMode === "degree" ? state.inputBaseNote + index : 60 + index;
+      const source = "virtual";
+      const start = (event) => {
+        event.preventDefault();
+        button.setPointerCapture?.(event.pointerId);
+        handleHarmonicTrigger(note, 100, source);
+      };
+      const stop = (event) => {
+        event.preventDefault();
+        stopHarmonicTrigger(note, source);
+      };
+      button.addEventListener("pointerdown", start);
+      button.addEventListener("pointerup", stop);
+      button.addEventListener("pointercancel", stop);
+      button.addEventListener("pointerleave", (event) => {
+        if (event.buttons) stop(event);
+      });
+    }
+
+    function setPadActive(index, active) {
+      const pad = dom.pads.querySelector(`[data-index="${mod(index, 12)}"]`);
+      if (pad) pad.classList.toggle("active", active);
+    }
+
+    function renderChord(chordInfo, notes, bassNotes) {
+      dom.functionName.textContent = chordInfo.label;
+      dom.realName.textContent = `${chordInfo.name} / ${chordInfo.role}`;
+      dom.noteCount.textContent = `${notes.length} notes`;
+      const layers = [`Keys ${notes.map(midiToName).join(", ")}`];
+      if (bassNotes.length) layers.push(`Bass ${bassNotes.map(midiToName).join(", ")}`);
+      if (state.layers.arp) layers.push(`Arp ${formatArpPattern(state.arpPattern)}`);
+      dom.noteNames.textContent = layers.join(" / ");
+    }
+
+    function updateLastInput(type, channel, data, value) {
+      dom.lastType.textContent = type;
+      dom.lastChannel.textContent = `Channel ${channel}`;
+      dom.lastData.textContent = data;
+      dom.lastValue.textContent = `Velocity/value ${value}`;
+      logMessage(type, channel, data, value);
+    }
+
+    function logMessage(type, channel, data, value) {
+      const time = new Date().toLocaleTimeString([], { hour12: false });
+      state.log.unshift({ time, type, channel, data, value });
+      state.log = state.log.slice(0, 80);
+      renderMonitor();
+    }
+
+    function renderMonitor() {
+      if (!state.log.length) {
+        dom.monitor.innerHTML = `<div class="log-line"><span>--</span><strong>idle</strong><span>--</span><span>No MIDI messages yet.</span></div>`;
+        return;
+      }
+      dom.monitor.innerHTML = state.log.map((line) => `
+        <div class="log-line">
+          <span>${line.time}</span>
+          <strong>${line.type}</strong>
+          <span>${line.channel}</span>
+          <span>${line.data} / ${line.value}</span>
+        </div>
+      `).join("");
+    }
+
+    /* Helpers */
+    function noteNameToPc(name) {
+      return NOTE_NAMES.indexOf(name);
+    }
+
+    function pcToName(pc) {
+      return NOTE_NAMES[mod(pc, 12)];
+    }
+
+    function midiToName(midiNumber) {
+      const octave = Math.floor(midiNumber / 12) - 1;
+      return `${pcToName(midiNumber)}${octave}`;
+    }
+
+    function midiToFrequency(midiNumber) {
+      return 440 * Math.pow(2, (midiNumber - 69) / 12);
+    }
+
+    function nearestMidiForPc(pc, target) {
+      let note = Math.floor(target / 12) * 12 + mod(pc, 12);
+      while (note - target > 6) note -= 12;
+      while (target - note > 6) note += 12;
+      return note;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function clampMidiNotes(notes) {
+      return notes.map((note) => clamp(Math.round(note), 0, 127));
+    }
+
+    function scaleCC(value, min, max, integer) {
+      const scaled = min + (value / 127) * (max - min);
+      return integer ? Math.round(scaled) : Number(scaled.toFixed(2));
+    }
+
+    function formatArpPattern(pattern) {
+      return pattern === "upDown" ? "Up Down" : pattern.charAt(0).toUpperCase() + pattern.slice(1);
+    }
+
+    function mod(value, divisor) {
+      return ((value % divisor) + divisor) % divisor;
+    }
+  </script>
+</body>
+</html>
