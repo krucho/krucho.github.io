@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visualizador de acordes de guitarra</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f1e8;
+      --muted: #a9a092;
+      --subtle: #6f675c;
+      --panel: rgba(21, 22, 23, 0.82);
+      --panel-strong: rgba(31, 32, 33, 0.94);
+      --line: rgba(244, 241, 232, 0.16);
+      --line-strong: rgba(244, 241, 232, 0.32);
+      --brass: #d7aa52;
+      --brass-soft: rgba(215, 170, 82, 0.18);
+      --mint: #86d6bd;
+      --rose: #ee776f;
+      --charcoal: #0d0f10;
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(215, 170, 82, 0.15), transparent 28rem),
+        radial-gradient(circle at 84% 78%, rgba(134, 214, 189, 0.12), transparent 24rem),
+        linear-gradient(135deg, #090a0b 0%, #151617 48%, #0b0d0d 100%);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.58), transparent 82%);
+    }
+
+    .app {
+      position: relative;
+      width: min(1180px, calc(100vw - 32px));
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 32px 0;
+      display: grid;
+      grid-template-columns: minmax(300px, 0.86fr) minmax(360px, 1.14fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .app.controls-collapsed {
+      grid-template-columns: 1fr;
+    }
+
+    .app.controls-collapsed .control-deck {
+      display: none;
+    }
+
+    .app.controls-collapsed .stage {
+      min-height: calc(100vh - 64px);
+    }
+
+    .app.controls-collapsed .diagram-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .panel-toggle {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: rgba(13, 15, 16, 0.86);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .panel-toggle:hover {
+      border-color: var(--brass);
+      background: rgba(25, 25, 24, 0.94);
+      transform: translateY(-1px);
+    }
+
+    .panel-toggle:focus-visible {
+      outline: 0;
+      box-shadow: 0 0 0 4px var(--brass-soft), 0 14px 34px rgba(0, 0, 0, 0.32);
+    }
+
+    .panel-toggle-icon {
+      display: grid;
+      gap: 4px;
+      width: 18px;
+    }
+
+    .panel-toggle-icon span {
+      display: block;
+      height: 2px;
+      border-radius: 99px;
+      background: var(--mint);
+      transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span {
+      background: var(--brass);
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span:nth-child(1) {
+      transform: translateY(6px) rotate(45deg);
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span:nth-child(3) {
+      transform: translateY(-6px) rotate(-45deg);
+    }
+
+    .control-deck,
+    .stage {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 24px 70px var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .control-deck {
+      border-radius: 8px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      min-height: 620px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kicker {
+      width: fit-content;
+      padding: 6px 10px;
+      border: 1px solid var(--line-strong);
+      color: var(--mint);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 10ch;
+      font-size: clamp(2.8rem, 7vw, 5.8rem);
+      line-height: 0.82;
+      font-weight: 700;
+    }
+
+    .intro {
+      margin: 0;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.98rem;
+      line-height: 1.55;
+    }
+
+    label,
+    .label {
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .input-row {
+      display: grid;
+      gap: 9px;
+    }
+
+    .input-shell {
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 156px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: rgba(7, 8, 8, 0.72);
+      color: var(--ink);
+      padding: 14px 16px;
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      outline: none;
+      resize: vertical;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    textarea:focus {
+      border-color: var(--brass);
+      box-shadow: 0 0 0 4px var(--brass-soft);
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .error {
+      min-height: 1.2em;
+      margin: 0;
+      color: var(--rose);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.86rem;
+    }
+
+    .orientation {
+      display: grid;
+      gap: 10px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(7, 8, 8, 0.56);
+    }
+
+    .segmented button,
+    .examples button {
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      cursor: pointer;
+    }
+
+    .segmented button {
+      min-height: 48px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.88rem;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .segmented button + button {
+      border-left: 1px solid var(--line);
+    }
+
+    .segmented button[aria-pressed="true"] {
+      background: var(--brass);
+      color: #17130b;
+      font-weight: 700;
+    }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .examples button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .examples button:hover {
+      border-color: var(--mint);
+      color: var(--ink);
+      transform: translateY(-1px);
+    }
+
+    .readout {
+      margin-top: auto;
+      display: grid;
+      gap: 12px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .readout-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 82px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+      padding: 12px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 10px;
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: clamp(1rem, 2.4vw, 1.34rem);
+      overflow-wrap: anywhere;
+    }
+
+    .stage {
+      position: relative;
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 20px;
+      min-height: 620px;
+      overflow: hidden;
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: -74px;
+      height: 150px;
+      background: linear-gradient(90deg, transparent, rgba(215, 170, 82, 0.18), transparent);
+      filter: blur(16px);
+      transform: rotate(-2deg);
+    }
+
+    .stage-head {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 18px;
+    }
+
+    .chord-name {
+      margin: 0;
+      font-size: clamp(3rem, 8vw, 7.6rem);
+      line-height: 0.82;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .tuning {
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.82rem;
+      text-align: right;
+      line-height: 1.6;
+      white-space: nowrap;
+    }
+
+    .diagram-wrap {
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 6px;
+    }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .chord-card {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      min-height: 310px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+      padding: 14px;
+    }
+
+    .chord-card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    .chord-card h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(1.7rem, 4vw, 2.45rem);
+      line-height: 0.92;
+    }
+
+    .chord-card code {
+      color: var(--mint);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    .chord-diagram {
+      width: 100%;
+      align-self: center;
+      justify-self: center;
+      filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.32));
+    }
+
+    .string-label,
+    .fret-label,
+    .marker-label,
+    .top-label {
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      dominant-baseline: middle;
+      text-anchor: middle;
+      user-select: none;
+    }
+
+    .string-label,
+    .fret-label {
+      fill: var(--muted);
+      font-size: 14px;
+    }
+
+    .top-label {
+      fill: var(--ink);
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .marker-label {
+      fill: #14100a;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .fret-line {
+      stroke: rgba(244, 241, 232, 0.22);
+      stroke-width: 2;
+    }
+
+    .nut-line {
+      stroke: var(--brass);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    .string-line {
+      stroke: rgba(244, 241, 232, 0.58);
+      stroke-linecap: round;
+    }
+
+    .position-dot {
+      fill: var(--brass);
+      stroke: rgba(255, 255, 255, 0.72);
+      stroke-width: 2;
+    }
+
+    .open-dot {
+      fill: transparent;
+      stroke: var(--mint);
+      stroke-width: 3;
+    }
+
+    .dead-line {
+      stroke: var(--rose);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        grid-template-columns: 1fr;
+        padding: 16px 0;
+      }
+
+      .app.controls-collapsed .stage {
+        min-height: calc(100vh - 32px);
+      }
+
+      .panel-toggle {
+        top: 8px;
+        left: 8px;
+        width: 36px;
+        height: 36px;
+      }
+
+      .control-deck,
+      .stage {
+        min-height: auto;
+      }
+
+      h1 {
+        max-width: none;
+        font-size: clamp(2.45rem, 13vw, 4.5rem);
+      }
+
+      .stage {
+        padding: 18px;
+      }
+
+      .stage-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .tuning {
+        text-align: left;
+        white-space: normal;
+      }
+
+      .readout-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="panel-toggle" id="panelToggle" type="button" aria-controls="controlDeck" aria-expanded="true" aria-label="Ocultar controles" title="Ocultar controles">
+    <span class="panel-toggle-icon" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </span>
+  </button>
+
+  <main class="app">
+    <section class="control-deck" id="controlDeck" aria-label="Controles del visualizador">
+      <div class="brand">
+        <span class="kicker">Chord scope</span>
+        <h1>Visor de acordes</h1>
+        <p class="intro">Ingresa un acorde por linea, siempre de grave a aguda. Usa <strong>x</strong> para cuerda muteada y <strong>0</strong> para cuerda al aire.</p>
+      </div>
+
+      <div class="input-row">
+        <label for="chordInput">Lista de acordes</label>
+        <div class="input-shell">
+          <textarea id="chordInput" autocomplete="off" spellcheck="false" aria-describedby="inputHint inputError">Dsus2 xx0230
+C x32010
+G 320003
+A x02220</textarea>
+        </div>
+        <p id="inputHint" class="hint">Formato: nombre y seis caracteres. Ejemplo: <strong>Am x02210</strong>, <strong>G 320003</strong>, <strong>F 133211</strong>.</p>
+        <p id="inputError" class="error" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="orientation">
+        <span class="label">Orientacion</span>
+        <div class="segmented" role="group" aria-label="Orientacion del diagrama">
+          <button type="button" id="verticalBtn" aria-pressed="true">Cuerdas verticales</button>
+          <button type="button" id="horizontalBtn" aria-pressed="false">Cuerdas horizontales</button>
+        </div>
+      </div>
+
+      <div class="orientation">
+        <span class="label">Atajos</span>
+        <div class="examples" aria-label="Acordes de ejemplo">
+          <button type="button" data-example="Dsus2 xx0230">Dsus2</button>
+          <button type="button" data-example="C x32010">C</button>
+          <button type="button" data-example="Em 022000">Em</button>
+          <button type="button" data-example="G 320003">G</button>
+          <button type="button" data-example="F 133211">F</button>
+          <button type="button" data-example="Bm x24432">Bm</button>
+          <button type="button" data-example="Dsus2 xx0230&#10;C x32010&#10;G 320003&#10;A x02220">Progresion</button>
+        </div>
+      </div>
+
+      <div class="readout" aria-label="Detalle de la lista">
+        <span class="label">Lectura</span>
+        <div class="readout-grid">
+          <div class="metric">
+            <span>Acordes</span>
+            <strong id="nameReadout">4</strong>
+          </div>
+          <div class="metric">
+            <span>Primer acorde</span>
+            <strong id="shapeReadout">Dsus2</strong>
+          </div>
+          <div class="metric">
+            <span>Trastes</span>
+            <strong id="fretReadout">0-3</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage" aria-label="Diagramas de acordes">
+      <div class="stage-head">
+        <h2 class="chord-name" id="stageName">4 acordes</h2>
+        <div class="tuning">Afinacion estandar<br>E A D G B e</div>
+      </div>
+      <div class="diagram-wrap">
+        <div id="diagramGrid" class="diagram-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const app = document.querySelector(".app");
+    const panelToggle = document.querySelector("#panelToggle");
+    const input = document.querySelector("#chordInput");
+    const diagramGrid = document.querySelector("#diagramGrid");
+    const error = document.querySelector("#inputError");
+    const stageName = document.querySelector("#stageName");
+    const nameReadout = document.querySelector("#nameReadout");
+    const shapeReadout = document.querySelector("#shapeReadout");
+    const fretReadout = document.querySelector("#fretReadout");
+    const verticalBtn = document.querySelector("#verticalBtn");
+    const horizontalBtn = document.querySelector("#horizontalBtn");
+    const stringNames = ["E", "A", "D", "G", "B", "e"];
+    let orientation = "vertical";
+    let controlsCollapsed = localStorage.getItem("controlsCollapsed") === "true";
+
+    function parseChordLine(value, lineNumber) {
+      const trimmed = value.trim().replace(/\s+/g, " ");
+      const match = trimmed.match(/^(.+?)\s+([xX0-9]{6})$/);
+
+      if (!match) {
+        return {
+          ok: false,
+          message: `Linea ${lineNumber}: usa formato Nombre x02210.`
+        };
+      }
+
+      const name = match[1].trim();
+      const shape = match[2].toLowerCase();
+      const positions = shape.split("").map((char) => char === "x" ? "x" : Number(char));
+      const numericFrets = positions.filter((position) => typeof position === "number");
+      const playedFrets = numericFrets.filter((position) => position > 0);
+      const maxFret = Math.max(3, ...playedFrets, 0);
+
+      return { ok: true, name, shape, positions, maxFret };
+    }
+
+    function parseChordList(value) {
+      const chords = [];
+      const errors = [];
+      const lines = value.split(/\r?\n/);
+
+      lines.forEach((line, index) => {
+        if (!line.trim()) {
+          return;
+        }
+
+        const parsed = parseChordLine(line, index + 1);
+        if (parsed.ok) {
+          chords.push(parsed);
+        } else {
+          errors.push(parsed.message);
+        }
+      });
+
+      if (chords.length === 0 && errors.length === 0) {
+        errors.push("Agrega al menos un acorde, por ejemplo: Dsus2 xx0230.");
+      }
+
+      return { chords, errors };
+    }
+
+    function el(name, attrs = {}) {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      return node;
+    }
+
+    function textNode(content, attrs = {}) {
+      const node = el("text", attrs);
+      node.textContent = content;
+      return node;
+    }
+
+    function updateButtons() {
+      verticalBtn.setAttribute("aria-pressed", String(orientation === "vertical"));
+      horizontalBtn.setAttribute("aria-pressed", String(orientation === "horizontal"));
+    }
+
+    function updatePanelToggle() {
+      app.classList.toggle("controls-collapsed", controlsCollapsed);
+      panelToggle.setAttribute("aria-expanded", String(!controlsCollapsed));
+      panelToggle.setAttribute("aria-label", controlsCollapsed ? "Mostrar controles" : "Ocultar controles");
+      panelToggle.setAttribute("title", controlsCollapsed ? "Mostrar controles" : "Ocultar controles");
+      localStorage.setItem("controlsCollapsed", String(controlsCollapsed));
+    }
+
+    function setSvgMeta(svg, data, layout, index) {
+      const titleId = `diagramTitle${index}`;
+      const descId = `diagramDesc${index}`;
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-labelledby", `${titleId} ${descId}`);
+      svg.innerHTML = "";
+      svg.append(
+        el("title", { id: titleId }),
+        el("desc", { id: descId })
+      );
+      svg.querySelector("title").textContent = `Diagrama ${layout} de ${data.name}`;
+      svg.querySelector("desc").textContent = `Acorde ${data.name} con digitacion ${data.shape}.`;
+    }
+
+    function renderVertical(svg, data, index) {
+      const width = 560;
+      const height = 640;
+      const left = 88;
+      const right = 476;
+      const top = 102;
+      const bottom = 538;
+      const stringGap = (right - left) / 5;
+      const fretGap = (bottom - top) / data.maxFret;
+
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      setSvgMeta(svg, data, "vertical", index);
+
+      for (let fret = 0; fret <= data.maxFret; fret += 1) {
+        const y = top + fret * fretGap;
+        svg.append(el("line", {
+          x1: left,
+          x2: right,
+          y1: y,
+          y2: y,
+          class: fret === 0 ? "nut-line" : "fret-line"
+        }));
+
+        if (fret > 0) {
+          svg.append(textNode(String(fret), {
+            x: left - 42,
+            y: top + (fret - 0.5) * fretGap,
+            class: "fret-label"
+          }));
+        }
+      }
+
+      data.positions.forEach((position, stringIndex) => {
+        const x = left + stringIndex * stringGap;
+        svg.append(el("line", {
+          x1: x,
+          x2: x,
+          y1: top,
+          y2: bottom,
+          class: "string-line",
+          "stroke-width": String(2.2 + (5 - stringIndex) * 0.55)
+        }));
+        svg.append(textNode(stringNames[stringIndex], {
+          x,
+          y: bottom + 42,
+          class: "string-label"
+        }));
+
+        if (position === "x") {
+          drawMuted(svg, x, top - 42, "vertical");
+        } else if (position === 0) {
+          svg.append(el("circle", { cx: x, cy: top - 42, r: 13, class: "open-dot" }));
+        } else {
+          const y = top + (position - 0.5) * fretGap;
+          svg.append(el("circle", { cx: x, cy: y, r: 23, class: "position-dot" }));
+          svg.append(textNode(String(position), { x, y: y + 1, class: "marker-label" }));
+        }
+      });
+    }
+
+    function renderHorizontal(svg, data, index) {
+      const width = 700;
+      const height = 520;
+      const left = 128;
+      const right = 616;
+      const top = 84;
+      const bottom = 410;
+      const rowOrder = [5, 4, 3, 2, 1, 0];
+      const stringGap = (bottom - top) / 5;
+      const fretGap = (right - left) / data.maxFret;
+
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      setSvgMeta(svg, data, "horizontal", index);
+
+      for (let fret = 0; fret <= data.maxFret; fret += 1) {
+        const x = left + fret * fretGap;
+        svg.append(el("line", {
+          x1: x,
+          x2: x,
+          y1: top,
+          y2: bottom,
+          class: fret === 0 ? "nut-line" : "fret-line"
+        }));
+
+        if (fret > 0) {
+          svg.append(textNode(String(fret), {
+            x: left + (fret - 0.5) * fretGap,
+            y: bottom + 45,
+            class: "fret-label"
+          }));
+        }
+      }
+
+      rowOrder.forEach((stringIndex, rowIndex) => {
+        const y = top + rowIndex * stringGap;
+        const position = data.positions[stringIndex];
+        svg.append(el("line", {
+          x1: left,
+          x2: right,
+          y1: y,
+          y2: y,
+          class: "string-line",
+          "stroke-width": String(2.2 + (5 - stringIndex) * 0.55)
+        }));
+        svg.append(textNode(stringNames[stringIndex], {
+          x: left - 46,
+          y,
+          class: "string-label"
+        }));
+
+        if (position === "x") {
+          drawMuted(svg, left - 86, y, "horizontal");
+        } else if (position === 0) {
+          svg.append(el("circle", { cx: left - 86, cy: y, r: 13, class: "open-dot" }));
+        } else {
+          const x = left + (position - 0.5) * fretGap;
+          svg.append(el("circle", { cx: x, cy: y, r: 23, class: "position-dot" }));
+          svg.append(textNode(String(position), { x, y: y + 1, class: "marker-label" }));
+        }
+      });
+    }
+
+    function drawMuted(svg, x, y, mode) {
+      const size = mode === "vertical" ? 12 : 11;
+      svg.append(el("line", {
+        x1: x - size,
+        x2: x + size,
+        y1: y - size,
+        y2: y + size,
+        class: "dead-line"
+      }));
+      svg.append(el("line", {
+        x1: x + size,
+        x2: x - size,
+        y1: y - size,
+        y2: y + size,
+        class: "dead-line"
+      }));
+    }
+
+    function renderChordCard(data, index) {
+      const card = document.createElement("article");
+      card.className = "chord-card";
+
+      const head = document.createElement("div");
+      head.className = "chord-card-head";
+
+      const title = document.createElement("h3");
+      title.textContent = data.name;
+
+      const code = document.createElement("code");
+      code.textContent = data.shape;
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.classList.add("chord-diagram");
+
+      head.append(title, code);
+      card.append(head, svg);
+
+      if (orientation === "vertical") {
+        renderVertical(svg, data, index);
+      } else {
+        renderHorizontal(svg, data, index);
+      }
+
+      return card;
+    }
+
+    function update() {
+      const parsed = parseChordList(input.value);
+      const chords = parsed.chords;
+
+      error.textContent = parsed.errors.join(" ");
+      diagramGrid.innerHTML = "";
+
+      chords.forEach((chord, index) => {
+        diagramGrid.append(renderChordCard(chord, index));
+      });
+
+      const count = chords.length;
+      const maxFret = Math.max(0, ...chords.map((chord) => chord.maxFret));
+      stageName.textContent = count === 1 ? chords[0].name : `${count} acordes`;
+      nameReadout.textContent = String(count);
+      shapeReadout.textContent = count > 0 ? chords[0].name : "-";
+      fretReadout.textContent = count > 0 ? `0-${maxFret}` : "-";
+    }
+
+    verticalBtn.addEventListener("click", () => {
+      orientation = "vertical";
+      updateButtons();
+      update();
+    });
+
+    horizontalBtn.addEventListener("click", () => {
+      orientation = "horizontal";
+      updateButtons();
+      update();
+    });
+
+    input.addEventListener("input", update);
+
+    panelToggle.addEventListener("click", () => {
+      controlsCollapsed = !controlsCollapsed;
+      updatePanelToggle();
+    });
+
+    document.querySelectorAll("[data-example]").forEach((button) => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.example;
+        update();
+      });
+    });
+
+    updateButtons();
+    updatePanelToggle();
+    update();
+  </script>
+</body>
+</html>
