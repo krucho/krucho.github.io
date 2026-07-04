@@ -935,8 +935,9 @@ A x02220</textarea>
       <div class="print-controls">
         <label for="printTitleInput">Titulo para imprimir</label>
         <input id="printTitleInput" type="text" value="Mis acordes" autocomplete="off">
+        <button class="sheet-button" id="saveStateLink" type="button">Copiar enlace guardado</button>
         <button class="print-button" id="buildPrintView" type="button">Vista para imprimir</button>
-        <p class="hint">Genera una hoja limpia con los acordes actuales.</p>
+        <p class="hint" id="saveStateStatus">Genera una hoja limpia o copia un enlace con los valores actuales.</p>
       </div>
     </section>
 
@@ -988,6 +989,8 @@ A x02220</textarea>
     const printGrid = document.querySelector("#printGrid");
     const closePrintView = document.querySelector("#closePrintView");
     const printPage = document.querySelector("#printPage");
+    const saveStateLink = document.querySelector("#saveStateLink");
+    const saveStateStatus = document.querySelector("#saveStateStatus");
     const noteOptions = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
     const tunings = [
       { id: "standard", label: "Afinacion estandar", shortLabel: "Estandar", strings: ["E", "A", "D", "G", "B", "e"] },
@@ -1067,6 +1070,90 @@ A x02220</textarea>
       const node = el("text", attrs);
       node.textContent = content;
       return node;
+    }
+
+    function encodeState(value) {
+      const bytes = new TextEncoder().encode(JSON.stringify(value));
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    function decodeState(value) {
+      const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+      const binary = atob(padded);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+
+    function serializeState() {
+      const savedFingers = Array.from(fingerings.entries()).filter(([, fingers]) => {
+        return Array.isArray(fingers) && fingers.some(Boolean);
+      });
+
+      return {
+        chords: input.value,
+        orientation,
+        tuningId,
+        customStringNames,
+        printTitle: printTitleInput.value.trim(),
+        fingerings: savedFingers
+      };
+    }
+
+    function applyStateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("state");
+
+      if (!encoded) {
+        return;
+      }
+
+      try {
+        const state = decodeState(encoded);
+        if (typeof state.chords === "string") {
+          input.value = state.chords;
+        }
+        if (state.orientation === "vertical" || state.orientation === "horizontal") {
+          orientation = state.orientation;
+        }
+        if (typeof state.tuningId === "string" && tunings.some((tuning) => tuning.id === state.tuningId)) {
+          tuningId = state.tuningId;
+        }
+        if (Array.isArray(state.customStringNames) && state.customStringNames.length === 6) {
+          customStringNames = state.customStringNames.map((note) => String(note || "E"));
+        }
+        if (typeof state.printTitle === "string" && state.printTitle.trim()) {
+          printTitleInput.value = state.printTitle;
+        }
+        if (Array.isArray(state.fingerings)) {
+          fingerings.clear();
+          state.fingerings.forEach(([key, fingers]) => {
+            if (typeof key === "string" && Array.isArray(fingers)) {
+              fingerings.set(key, fingers.slice(0, 6).map((finger) => String(finger || "")));
+            }
+          });
+        }
+        saveStateStatus.textContent = "Valores cargados desde el enlace.";
+      } catch (error) {
+        saveStateStatus.textContent = "No pude cargar los valores del enlace.";
+        console.warn("No se pudo leer el estado de la URL.", error);
+      }
+    }
+
+    async function copyStateLink() {
+      const url = new URL(window.location.href);
+      url.searchParams.set("state", encodeState(serializeState()));
+      window.history.replaceState(null, "", url);
+
+      try {
+        await navigator.clipboard.writeText(url.href);
+        saveStateStatus.textContent = "Enlace copiado con los valores actuales.";
+      } catch {
+        saveStateStatus.textContent = "Enlace listo en la barra del navegador.";
+      }
     }
 
     function loadCustomTuning() {
@@ -1460,8 +1547,13 @@ A x02220</textarea>
     input.addEventListener("input", update);
 
     printTitleInput.value = localStorage.getItem("printTitle") || printTitleInput.value;
+    applyStateFromUrl();
 
     buildPrintView.addEventListener("click", openPrintView);
+
+    saveStateLink.addEventListener("click", () => {
+      copyStateLink();
+    });
 
     closePrintView.addEventListener("click", closePrintSheet);
 
