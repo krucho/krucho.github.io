@@ -1398,6 +1398,20 @@ A x02220</textarea>
       });
     }
 
+    function wait(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    async function shortenUrlWithRetry(longUrl, onRetry) {
+      try {
+        return await shortenUrl(longUrl);
+      } catch (firstError) {
+        onRetry?.(firstError);
+        await wait(450);
+        return shortenUrl(longUrl);
+      }
+    }
+
     async function copyTextWithFallback(text, fallbackMessage) {
       try {
         await navigator.clipboard.writeText(text);
@@ -1443,7 +1457,9 @@ A x02220</textarea>
       saveStateStatus.textContent = "Generando enlace corto. Puede tardar unos segundos...";
 
       try {
-        const shortUrl = await shortenUrl(url.href);
+        const shortUrl = await shortenUrlWithRetry(url.href, () => {
+          saveStateStatus.textContent = "El acortador tardo en responder. Reintentando...";
+        });
         if (encodeState(serializeState()) !== stateSnapshot) {
           saveStateStatus.textContent = "Cambios detectados. Genera un enlace corto nuevo para compartirlos.";
           return;
