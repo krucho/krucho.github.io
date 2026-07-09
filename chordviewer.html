@@ -368,6 +368,18 @@
       font-size: 0.8rem;
     }
 
+    .state-meter {
+      margin: 0;
+      color: var(--subtle);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+
+    .state-meter.warn {
+      color: var(--brass);
+    }
+
     .print-button,
     .sheet-button {
       min-height: 42px;
@@ -756,10 +768,17 @@
       color: #181612;
       font-size: var(--print-card-title-size);
       line-height: 0.96;
+      flex: 1 1 auto;
+      overflow: hidden;
+      overflow-wrap: normal;
+      text-overflow: clip;
+      white-space: nowrap;
+      word-break: normal;
     }
 
     .print-grid .chord-card-head {
       justify-content: flex-start;
+      overflow: hidden;
     }
 
     .print-grid .chord-card code {
@@ -839,7 +858,7 @@
     }
 
     .print-actions .print-options {
-      grid-template-columns: repeat(3, minmax(130px, 1fr));
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
       align-items: end;
       padding: 0;
       border: 0;
@@ -1038,6 +1057,7 @@ A x02220</textarea>
         <button class="sheet-button" id="copyShortStateLink" type="button" disabled>Copiar enlace corto</button>
         <button class="print-button" id="buildPrintView" type="button">Vista para imprimir</button>
         <p class="hint" id="saveStateStatus">Genera una hoja limpia, copia el enlace guardado o prepara un enlace corto.</p>
+        <p class="state-meter" id="stateMeter">Estado: 0 caracteres</p>
       </div>
     </section>
 
@@ -1065,6 +1085,10 @@ A x02220</textarea>
         <label class="range-field">
           <span>Titulo <output id="printTitleSizeValue">56</output></span>
           <input id="printTitleSize" type="range" min="42" max="92" value="56">
+        </label>
+        <label class="range-field">
+          <span>Acordes <output id="printChordTitleSizeValue">24</output></span>
+          <input id="printChordTitleSize" type="range" min="12" max="38" value="24">
         </label>
         <label class="range-field" for="printPageOrientation">
           <span>Pagina</span>
@@ -1120,8 +1144,11 @@ A x02220</textarea>
     const generateShortStateLinkButton = document.querySelector("#generateShortStateLink");
     const copyShortStateLinkButton = document.querySelector("#copyShortStateLink");
     const saveStateStatus = document.querySelector("#saveStateStatus");
+    const stateMeter = document.querySelector("#stateMeter");
     const printTitleSize = document.querySelector("#printTitleSize");
     const printTitleSizeValue = document.querySelector("#printTitleSizeValue");
+    const printChordTitleSize = document.querySelector("#printChordTitleSize");
+    const printChordTitleSizeValue = document.querySelector("#printChordTitleSizeValue");
     const printPageOrientation = document.querySelector("#printPageOrientation");
     const printColumns = document.querySelector("#printColumns");
     const printPageStyle = document.createElement("style");
@@ -1130,17 +1157,6 @@ A x02220</textarea>
     const noteOptions = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
     const printOrientationOptions = ["portrait", "landscape"];
     const printColumnOptions = ["auto-fit", "1", "2", "3", "4", "5", "6", "7", "8"];
-    const printCardTitleSizes = {
-      "auto-fit": 34,
-      "1": 38,
-      "2": 38,
-      "3": 34,
-      "4": 30,
-      "5": 25,
-      "6": 22,
-      "7": 19,
-      "8": 17
-    };
     const tunings = [
       { id: "standard", label: "Afinacion estandar", shortLabel: "Estandar", strings: ["E", "A", "D", "G", "B", "e"] },
       { id: "drop-d", label: "Drop D", shortLabel: "Drop D", strings: ["D", "A", "D", "G", "B", "e"] },
@@ -1277,6 +1293,42 @@ A x02220</textarea>
       return JSON.parse(new TextDecoder().decode(bytes));
     }
 
+    function toCompactState(state) {
+      return {
+        c: state.chords,
+        o: state.orientation,
+        t: state.tuningId,
+        cs: state.customStringNames,
+        pt: state.printTitle,
+        pts: state.printTitleSize,
+        cts: state.printChordTitleSize,
+        ppo: state.printPageOrientation,
+        pc: state.printColumns,
+        f: state.fingerings,
+        r: state.rootMarkers
+      };
+    }
+
+    function fromCompactState(state) {
+      if (!state || typeof state !== "object" || !("c" in state)) {
+        return state;
+      }
+
+      return {
+        chords: state.c,
+        orientation: state.o,
+        tuningId: state.t,
+        customStringNames: state.cs,
+        printTitle: state.pt,
+        printTitleSize: state.pts,
+        printChordTitleSize: state.cts,
+        printPageOrientation: state.ppo,
+        printColumns: state.pc,
+        fingerings: state.f,
+        rootMarkers: state.r
+      };
+    }
+
     function serializeState() {
       const savedFingers = Array.from(fingerings.entries()).filter(([, fingers]) => {
         return Array.isArray(fingers) && fingers.some(Boolean);
@@ -1292,6 +1344,7 @@ A x02220</textarea>
         customStringNames,
         printTitle: printTitleInput.value.trim(),
         printTitleSize: printTitleSize.value,
+        printChordTitleSize: printChordTitleSize.value,
         printPageOrientation: printPageOrientation.value,
         printColumns: printColumns.value,
         fingerings: savedFingers,
@@ -1308,7 +1361,7 @@ A x02220</textarea>
       }
 
       try {
-        const state = decodeState(encoded);
+        const state = fromCompactState(decodeState(encoded));
         if (typeof state.chords === "string") {
           input.value = state.chords;
         }
@@ -1326,6 +1379,9 @@ A x02220</textarea>
         }
         if (state.printTitleSize && Number.isFinite(Number(state.printTitleSize))) {
           printTitleSize.value = state.printTitleSize;
+        }
+        if (state.printChordTitleSize && Number.isFinite(Number(state.printChordTitleSize))) {
+          printChordTitleSize.value = state.printChordTitleSize;
         }
         if (printOrientationOptions.includes(String(state.printPageOrientation))) {
           printPageOrientation.value = state.printPageOrientation;
@@ -1359,9 +1415,19 @@ A x02220</textarea>
 
     function buildStateUrl() {
       const url = new URL(window.location.href);
-      url.searchParams.set("state", encodeState(serializeState()));
+      url.searchParams.set("state", encodeState(toCompactState(serializeState())));
       url.hash = "";
       return url;
+    }
+
+    function getEncodedStateLength() {
+      return encodeState(toCompactState(serializeState())).length;
+    }
+
+    function updateStateMeter() {
+      const length = getEncodedStateLength();
+      stateMeter.textContent = `Estado: ${length} caracteres`;
+      stateMeter.classList.toggle("warn", length > 1400);
     }
 
     async function shortenUrl(longUrl) {
@@ -1427,7 +1493,7 @@ A x02220</textarea>
     }
 
     async function generateShortStateLink() {
-      const stateSnapshot = encodeState(serializeState());
+      const stateSnapshot = encodeState(toCompactState(serializeState()));
       const url = buildStateUrl();
       window.history.replaceState(null, "", url);
       generatedShortUrl = "";
@@ -1440,7 +1506,7 @@ A x02220</textarea>
         const shortUrl = await shortenUrlWithRetry(url.href, () => {
           saveStateStatus.textContent = "El acortador tardo en responder. Reintentando...";
         });
-        if (encodeState(serializeState()) !== stateSnapshot) {
+        if (encodeState(toCompactState(serializeState())) !== stateSnapshot) {
           saveStateStatus.textContent = "Cambios detectados. Genera un enlace corto nuevo para compartirlos.";
           return;
         }
@@ -1564,11 +1630,27 @@ A x02220</textarea>
       printColumns.value = columns;
       printSheet.style.setProperty("--print-title-size", `${printTitleSize.value}px`);
       printSheet.style.setProperty("--print-card-min", columns === "auto-fit" ? "180px" : "0px");
-      printSheet.style.setProperty("--print-card-title-size", `${printCardTitleSizes[columns]}px`);
+      printSheet.style.setProperty("--print-card-title-size", `${printChordTitleSize.value}px`);
       printSheet.style.setProperty("--print-columns", columns);
       printPageStyle.textContent = `@media print { @page { size: ${pageOrientation}; margin: 12mm; } }`;
       printTitleSizeValue.textContent = printTitleSize.value;
+      printChordTitleSizeValue.textContent = printChordTitleSize.value;
       localStorage.setItem("printPageOrientation", pageOrientation);
+      updateStateMeter();
+      window.requestAnimationFrame(fitPrintChordTitles);
+    }
+
+    function fitPrintChordTitles() {
+      const baseSize = Number(printChordTitleSize.value) || 24;
+      printGrid.querySelectorAll(".chord-card h3").forEach((title) => {
+        let size = baseSize;
+        title.style.fontSize = `${size}px`;
+
+        while (title.scrollWidth > title.clientWidth && size > 10) {
+          size -= 1;
+          title.style.fontSize = `${size}px`;
+        }
+      });
     }
 
     function getChordKey(data, index) {
@@ -1901,6 +1983,7 @@ A x02220</textarea>
       });
       printView.hidden = false;
       document.body.style.overflow = "hidden";
+      window.requestAnimationFrame(fitPrintChordTitles);
       closePrintView.focus();
     }
 
@@ -1923,6 +2006,7 @@ A x02220</textarea>
       });
 
       stageName.textContent = "Diagramas";
+      updateStateMeter();
     }
 
     verticalBtn.addEventListener("click", () => {
@@ -1939,6 +2023,7 @@ A x02220</textarea>
 
     input.addEventListener("input", update);
     printTitleInput.addEventListener("input", () => {
+      updateStateMeter();
       invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
     });
 
@@ -1963,7 +2048,7 @@ A x02220</textarea>
       copyGeneratedShortStateLink();
     });
 
-    [printTitleSize].forEach((control) => {
+    [printTitleSize, printChordTitleSize].forEach((control) => {
       control.addEventListener("input", () => {
         updatePrintSettings();
         invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
