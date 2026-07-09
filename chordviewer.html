@@ -1,0 +1,2021 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visualizador de acordes de guitarra</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f1e8;
+      --muted: #a9a092;
+      --subtle: #6f675c;
+      --panel: rgba(21, 22, 23, 0.82);
+      --panel-strong: rgba(31, 32, 33, 0.94);
+      --line: rgba(244, 241, 232, 0.16);
+      --line-strong: rgba(244, 241, 232, 0.32);
+      --brass: #d7aa52;
+      --brass-soft: rgba(215, 170, 82, 0.18);
+      --mint: #86d6bd;
+      --rose: #ee776f;
+      --charcoal: #0d0f10;
+      --shadow: rgba(0, 0, 0, 0.38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(215, 170, 82, 0.15), transparent 28rem),
+        radial-gradient(circle at 84% 78%, rgba(134, 214, 189, 0.12), transparent 24rem),
+        linear-gradient(135deg, #090a0b 0%, #151617 48%, #0b0d0d 100%);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.58), transparent 82%);
+    }
+
+    .app {
+      position: relative;
+      width: min(1180px, calc(100vw - 32px));
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 32px 0;
+      display: grid;
+      grid-template-columns: minmax(300px, 0.86fr) minmax(360px, 1.14fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .app.controls-collapsed {
+      grid-template-columns: 1fr;
+    }
+
+    .app.controls-collapsed .control-deck {
+      display: none;
+    }
+
+    .app.controls-collapsed .stage {
+      min-height: calc(100vh - 64px);
+    }
+
+    .app.controls-collapsed .diagram-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .panel-toggle {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: rgba(13, 15, 16, 0.86);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .panel-toggle:hover {
+      border-color: var(--brass);
+      background: rgba(25, 25, 24, 0.94);
+      transform: translateY(-1px);
+    }
+
+    .panel-toggle:focus-visible {
+      outline: 0;
+      box-shadow: 0 0 0 4px var(--brass-soft), 0 14px 34px rgba(0, 0, 0, 0.32);
+    }
+
+    .panel-toggle-icon {
+      display: grid;
+      gap: 4px;
+      width: 18px;
+    }
+
+    .panel-toggle-icon span {
+      display: block;
+      height: 2px;
+      border-radius: 99px;
+      background: var(--mint);
+      transition: transform 160ms ease, opacity 160ms ease, background 160ms ease;
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span {
+      background: var(--brass);
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span:nth-child(1) {
+      transform: translateY(6px) rotate(45deg);
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .panel-toggle[aria-expanded="false"] .panel-toggle-icon span:nth-child(3) {
+      transform: translateY(-6px) rotate(-45deg);
+    }
+
+    .control-deck,
+    .stage {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 24px 70px var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .control-deck {
+      border-radius: 8px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      min-height: 620px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .kicker {
+      width: fit-content;
+      padding: 6px 10px;
+      border: 1px solid var(--line-strong);
+      color: var(--mint);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 10ch;
+      font-size: clamp(2.8rem, 7vw, 5.8rem);
+      line-height: 0.82;
+      font-weight: 700;
+    }
+
+    .intro {
+      margin: 0;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.98rem;
+      line-height: 1.55;
+    }
+
+    label,
+    .label {
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .input-row {
+      display: grid;
+      gap: 9px;
+    }
+
+    .input-shell {
+      position: relative;
+    }
+
+    textarea,
+    select,
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: rgba(7, 8, 8, 0.72);
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      outline: none;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    textarea {
+      min-height: 156px;
+      padding: 14px 16px;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      resize: vertical;
+    }
+
+    select {
+      min-height: 42px;
+      padding: 9px 11px;
+      font-size: 0.92rem;
+    }
+
+    input[type="text"] {
+      min-height: 42px;
+      padding: 9px 11px;
+      font-size: 0.92rem;
+    }
+
+    textarea:focus,
+    select:focus,
+    input[type="text"]:focus {
+      border-color: var(--brass);
+      box-shadow: 0 0 0 4px var(--brass-soft);
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .error {
+      min-height: 1.2em;
+      margin: 0;
+      color: var(--rose);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.86rem;
+    }
+
+    .orientation {
+      display: grid;
+      gap: 10px;
+    }
+
+    .tuning-panel {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .custom-tuning {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .custom-tuning[hidden] {
+      display: none;
+    }
+
+    .string-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .string-field span {
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(7, 8, 8, 0.56);
+    }
+
+    .segmented button,
+    .examples button {
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      cursor: pointer;
+    }
+
+    .segmented button {
+      min-height: 48px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.88rem;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .segmented button + button {
+      border-left: 1px solid var(--line);
+    }
+
+    .segmented button[aria-pressed="true"] {
+      background: var(--brass);
+      color: #17130b;
+      font-weight: 700;
+    }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .examples button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .examples button:hover {
+      border-color: var(--mint);
+      color: var(--ink);
+      transform: translateY(-1px);
+    }
+
+    .print-controls {
+      margin-top: 0;
+      display: grid;
+      gap: 10px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .print-controls .hint {
+      font-size: 0.8rem;
+    }
+
+    .print-button,
+    .sheet-button {
+      min-height: 42px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--ink);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .print-button {
+      background: var(--mint);
+      border-color: transparent;
+      color: #07120f;
+      font-weight: 700;
+    }
+
+    .print-button:hover,
+    .sheet-button:hover {
+      border-color: var(--brass);
+      transform: translateY(-1px);
+    }
+
+    .print-button:disabled,
+    .sheet-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      transform: none;
+    }
+
+    .sheet-button.primary {
+      background: var(--brass);
+      border-color: transparent;
+      color: #17130b;
+      font-weight: 700;
+    }
+
+    .print-options {
+      display: grid;
+      gap: 9px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .range-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .range-field span {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .range-field output {
+      color: var(--mint);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--mint);
+    }
+
+    .stage {
+      position: relative;
+      border-radius: 8px;
+      padding: 24px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 20px;
+      min-height: 620px;
+      overflow: hidden;
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: -74px;
+      height: 150px;
+      background: linear-gradient(90deg, transparent, rgba(215, 170, 82, 0.18), transparent);
+      filter: blur(16px);
+      transform: rotate(-2deg);
+    }
+
+    .stage-head {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 18px;
+      min-width: 0;
+    }
+
+    .chord-name {
+      margin: 0;
+      min-width: 0;
+      font-size: clamp(2rem, 3.8vw, 3.4rem);
+      line-height: 0.9;
+      font-weight: 700;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .tuning {
+      color: var(--muted);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.82rem;
+      text-align: right;
+      line-height: 1.6;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+
+    .diagram-wrap {
+      position: relative;
+      z-index: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 6px;
+    }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .chord-card {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      min-height: 310px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+      padding: 14px;
+    }
+
+    .chord-card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+      min-width: 0;
+    }
+
+    .chord-card h3 {
+      margin: 0;
+      min-width: 0;
+      max-width: 100%;
+      color: var(--ink);
+      font-size: clamp(1.7rem, 4vw, 2.45rem);
+      line-height: 0.92;
+      overflow-wrap: anywhere;
+    }
+
+    .chord-card code {
+      color: var(--mint);
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    .chord-diagram {
+      width: 100%;
+      align-self: center;
+      justify-self: center;
+      filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.32));
+    }
+
+    .string-label,
+    .fret-label,
+    .marker-label,
+    .top-label {
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      dominant-baseline: middle;
+      text-anchor: middle;
+      user-select: none;
+    }
+
+    .string-label,
+    .fret-label {
+      fill: var(--muted);
+      font-size: 14px;
+    }
+
+    .top-label {
+      fill: var(--ink);
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .marker-label {
+      fill: #14100a;
+      font-size: 30px;
+      font-weight: 900;
+      pointer-events: none;
+    }
+
+    .fret-line {
+      stroke: rgba(244, 241, 232, 0.22);
+      stroke-width: 2;
+    }
+
+    .nut-line {
+      stroke: var(--brass);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    .string-line {
+      stroke: rgba(244, 241, 232, 0.58);
+      stroke-linecap: round;
+    }
+
+    .position-dot {
+      fill: var(--brass);
+      stroke: rgba(255, 255, 255, 0.72);
+      stroke-width: 2;
+      transition: fill 160ms ease, stroke 160ms ease;
+    }
+
+    .marker-cutout {
+      fill: #171819;
+      stroke: none;
+    }
+
+    .root-marker .position-dot {
+      fill: transparent;
+      stroke: var(--mint);
+      stroke-width: 5;
+    }
+
+    .root-marker .marker-label {
+      fill: var(--mint);
+      stroke: rgba(13, 15, 16, 0.9);
+      stroke-width: 1;
+      paint-order: stroke;
+    }
+
+    .finger-marker {
+      cursor: pointer;
+      outline: none;
+    }
+
+    .open-marker {
+      cursor: context-menu;
+      outline: none;
+    }
+
+    .finger-marker:hover .position-dot,
+    .finger-marker:focus .position-dot {
+      fill: var(--mint);
+      stroke: var(--brass);
+    }
+
+    .root-marker:hover .position-dot,
+    .root-marker:focus .position-dot {
+      fill: transparent;
+      stroke: var(--mint);
+    }
+
+    .open-dot {
+      fill: transparent;
+      stroke: var(--mint);
+      stroke-width: 3;
+    }
+
+    .root-open-halo {
+      fill: transparent;
+      stroke: var(--brass);
+      stroke-width: 3;
+      opacity: 0.95;
+    }
+
+    .root-open-dot {
+      stroke: var(--ink);
+      stroke-width: 5;
+    }
+
+    .dead-line {
+      stroke: var(--rose);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    .print-view {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      overflow: auto;
+      background: #111315;
+      padding: 28px;
+      color: #181612;
+    }
+
+    .print-view[hidden] {
+      display: none;
+    }
+
+    .print-sheet {
+      width: min(100%, 1040px);
+      min-height: calc(100vh - 56px);
+      margin: 0 auto;
+      padding: 42px;
+      border-radius: 8px;
+      background: #fbfaf6;
+      box-shadow: 0 28px 84px rgba(0, 0, 0, 0.45);
+      --ink: #181612;
+      --muted: #5e574c;
+      --brass: #1f1b15;
+      --mint: #2f5f53;
+      --rose: #5b2420;
+      --line: rgba(24, 22, 18, 0.15);
+      --line-strong: rgba(24, 22, 18, 0.32);
+      --print-title-size: 56px;
+      --print-card-min: 180px;
+      --print-card-height: 228px;
+      --print-card-title-size: 34px;
+      --print-columns: auto-fit;
+    }
+
+    .print-sheet-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid rgba(24, 22, 18, 0.22);
+    }
+
+    .print-sheet h2 {
+      margin: 0;
+      color: #181612;
+      font-size: var(--print-title-size);
+      line-height: 0.9;
+    }
+
+    .print-meta {
+      margin: 0;
+      color: #5e574c;
+      font-family: "Trebuchet MS", Verdana, sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .print-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--print-columns), minmax(min(100%, var(--print-card-min)), 1fr));
+      gap: 16px;
+      padding-top: 24px;
+    }
+
+    .print-grid .chord-card {
+      min-height: var(--print-card-height);
+      background: #fffdf8;
+      border-color: rgba(24, 22, 18, 0.2);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .print-grid .chord-card h3 {
+      color: #181612;
+      font-size: var(--print-card-title-size);
+      line-height: 0.96;
+    }
+
+    .print-grid .chord-card-head {
+      justify-content: flex-start;
+    }
+
+    .print-grid .chord-card code {
+      display: none;
+    }
+
+    .print-grid .chord-diagram {
+      filter: none;
+    }
+
+    .print-grid .string-line {
+      stroke: rgba(24, 22, 18, 0.82);
+    }
+
+    .print-grid .fret-line {
+      stroke: rgba(24, 22, 18, 0.46);
+    }
+
+    .print-grid .marker-label {
+      fill: #fbfaf6;
+      font-size: 32px;
+      paint-order: stroke;
+      stroke: #fbfaf6;
+      stroke-width: 0.5;
+    }
+
+    .print-grid .marker-cutout {
+      fill: #fffdf8;
+    }
+
+    .print-grid .root-marker .position-dot {
+      fill: transparent;
+      stroke: #181612;
+      stroke-width: 5;
+    }
+
+    .print-grid .root-marker .marker-label {
+      fill: #181612;
+      stroke: #fffdf8;
+      stroke-width: 1;
+    }
+
+    .print-grid .root-open-halo {
+      stroke: #181612;
+      stroke-width: 3;
+    }
+
+    .print-grid .root-open-dot {
+      stroke: #181612;
+      stroke-width: 5;
+    }
+
+    .print-grid .finger-marker {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .print-grid .open-marker {
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .print-actions {
+      position: sticky;
+      bottom: 0;
+      width: min(100%, 1040px);
+      margin: 14px auto 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(17, 19, 21, 0.86);
+      backdrop-filter: blur(16px);
+    }
+
+    .print-actions .print-options {
+      grid-template-columns: repeat(3, minmax(130px, 1fr));
+      align-items: end;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .print-action-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        grid-template-columns: 1fr;
+        padding: 16px 0;
+      }
+
+      .app.controls-collapsed .stage {
+        min-height: calc(100vh - 32px);
+      }
+
+      .panel-toggle {
+        top: 8px;
+        left: 8px;
+        width: 36px;
+        height: 36px;
+      }
+
+      .control-deck,
+      .stage {
+        min-height: auto;
+      }
+
+      h1 {
+        max-width: none;
+        font-size: clamp(2.45rem, 13vw, 4.5rem);
+      }
+
+      .stage {
+        padding: 18px;
+      }
+
+      .stage-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .tuning {
+        text-align: left;
+        white-space: normal;
+      }
+
+      .custom-tuning {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .print-view {
+        padding: 14px;
+      }
+
+      .print-sheet {
+        padding: 24px;
+      }
+
+      .print-sheet-head {
+        flex-direction: column;
+      }
+
+      .print-meta {
+        text-align: left;
+        white-space: normal;
+      }
+
+      .print-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .print-actions .print-options {
+        grid-template-columns: 1fr;
+      }
+
+      .print-action-buttons {
+        justify-content: stretch;
+      }
+
+      .print-action-buttons .sheet-button {
+        flex: 1;
+      }
+    }
+
+    @media print {
+      @page {
+        size: portrait;
+        margin: 12mm;
+      }
+
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        background: #fff;
+        color: #111;
+      }
+
+      body::before,
+      .panel-toggle,
+      .app,
+      .print-actions {
+        display: none !important;
+      }
+
+      .print-view {
+        position: static;
+        display: block !important;
+        overflow: visible;
+        padding: 0;
+        background: #fff;
+      }
+
+      .print-view[hidden] {
+        display: none !important;
+      }
+
+      .print-sheet {
+        width: auto;
+        min-height: auto;
+        margin: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="panel-toggle" id="panelToggle" type="button" aria-controls="controlDeck" aria-expanded="true" aria-label="Ocultar controles" title="Ocultar controles">
+    <span class="panel-toggle-icon" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </span>
+  </button>
+
+  <main class="app">
+    <section class="control-deck" id="controlDeck" aria-label="Controles del visualizador">
+      <div class="brand">
+        <h1>Visor de acordes</h1>
+      <p class="intro">Ingresa un acorde por linea, siempre de grave a aguda. Usa <strong>x</strong> para cuerda muteada y <strong>0</strong> para cuerda al aire. Las digitaciones se cambian con clicks sobre los puntos, y la tonica con click derecho.</p>
+      </div>
+
+      <div class="input-row">
+        <label for="chordInput">Lista de acordes</label>
+        <div class="input-shell">
+          <textarea id="chordInput" autocomplete="off" spellcheck="false" aria-describedby="inputHint inputError">Dsus2 xx0230
+C x32010
+G 320003
+A x02220</textarea>
+        </div>
+        <p id="inputHint" class="hint">Formato: nombre y seis posiciones. Ejemplo: <strong>Am x02210</strong>, <strong>G 320003</strong>. Para marcar tonica tambien podes usar parentesis: <strong>G (3)20003</strong>.</p>
+        <p id="inputError" class="error" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="orientation">
+        <span class="label">Orientacion</span>
+        <div class="segmented" role="group" aria-label="Orientacion del diagrama">
+          <button type="button" id="verticalBtn" aria-pressed="true">Cuerdas verticales</button>
+          <button type="button" id="horizontalBtn" aria-pressed="false">Cuerdas horizontales</button>
+        </div>
+      </div>
+
+      <div class="orientation tuning-panel">
+        <label for="tuningSelect">Afinacion</label>
+        <select id="tuningSelect"></select>
+        <div class="custom-tuning" id="customTuning" hidden aria-label="Afinacion custom"></div>
+      </div>
+
+      <div class="orientation">
+        <span class="label">Ejemplos</span>
+        <div class="examples" aria-label="Acordes de ejemplo">
+          <button type="button" data-example="Dsus2 xx0230">Dsus2</button>
+          <button type="button" data-example="C x32010">C</button>
+          <button type="button" data-example="Em 022000">Em</button>
+          <button type="button" data-example="G 320003">G</button>
+          <button type="button" data-example="F 133211">F</button>
+          <button type="button" data-example="Bm x24432">Bm</button>
+          <button type="button" data-example="Dsus2 xx0230&#10;C x32010&#10;G 320003&#10;A x02220">Progresion</button>
+        </div>
+      </div>
+
+      <div class="print-controls">
+        <label for="printTitleInput">Titulo para imprimir</label>
+        <input id="printTitleInput" type="text" value="Mis acordes" autocomplete="off">
+        <button class="sheet-button" id="saveStateLink" type="button">Copiar enlace guardado</button>
+        <button class="sheet-button" id="generateShortStateLink" type="button">Generar enlace corto</button>
+        <button class="sheet-button" id="copyShortStateLink" type="button" disabled>Copiar enlace corto</button>
+        <button class="print-button" id="buildPrintView" type="button">Vista para imprimir</button>
+        <p class="hint" id="saveStateStatus">Genera una hoja limpia, copia el enlace guardado o prepara un enlace corto.</p>
+      </div>
+    </section>
+
+    <section class="stage" aria-label="Diagramas de acordes">
+      <div class="stage-head">
+        <h2 class="chord-name" id="stageName">Diagramas</h2>
+        <div class="tuning" id="tuningReadout">Afinacion estandar<br>E A D G B e</div>
+      </div>
+      <div class="diagram-wrap">
+        <div id="diagramGrid" class="diagram-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <section class="print-view" id="printView" hidden aria-label="Vista para imprimir">
+    <div class="print-sheet" id="printSheet">
+      <div class="print-sheet-head">
+        <h2 id="printTitle">Mis acordes</h2>
+        <p class="print-meta" id="printMeta">Afinacion estandar<br>E A D G B e</p>
+      </div>
+      <div class="print-grid" id="printGrid"></div>
+    </div>
+    <div class="print-actions" aria-label="Acciones de impresion">
+      <div class="print-options" aria-label="Ajustes de impresion">
+        <label class="range-field">
+          <span>Titulo <output id="printTitleSizeValue">56</output></span>
+          <input id="printTitleSize" type="range" min="42" max="92" value="56">
+        </label>
+        <label class="range-field" for="printPageOrientation">
+          <span>Pagina</span>
+          <select id="printPageOrientation">
+            <option value="portrait">Vertical</option>
+            <option value="landscape">Horizontal</option>
+          </select>
+        </label>
+        <label class="range-field" for="printColumns">
+          <span>Columnas</span>
+          <select id="printColumns">
+            <option value="auto-fit">Auto</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+          </select>
+        </label>
+      </div>
+      <div class="print-action-buttons">
+        <button class="sheet-button" id="closePrintView" type="button">Cerrar</button>
+        <button class="sheet-button primary" id="printPage" type="button">Imprimir</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const app = document.querySelector(".app");
+    const panelToggle = document.querySelector("#panelToggle");
+    const input = document.querySelector("#chordInput");
+    const diagramGrid = document.querySelector("#diagramGrid");
+    const error = document.querySelector("#inputError");
+    const stageName = document.querySelector("#stageName");
+    const verticalBtn = document.querySelector("#verticalBtn");
+    const horizontalBtn = document.querySelector("#horizontalBtn");
+    const tuningSelect = document.querySelector("#tuningSelect");
+    const customTuning = document.querySelector("#customTuning");
+    const tuningReadout = document.querySelector("#tuningReadout");
+    const printTitleInput = document.querySelector("#printTitleInput");
+    const buildPrintView = document.querySelector("#buildPrintView");
+    const printView = document.querySelector("#printView");
+    const printSheet = document.querySelector("#printSheet");
+    const printTitle = document.querySelector("#printTitle");
+    const printMeta = document.querySelector("#printMeta");
+    const printGrid = document.querySelector("#printGrid");
+    const closePrintView = document.querySelector("#closePrintView");
+    const printPage = document.querySelector("#printPage");
+    const saveStateLink = document.querySelector("#saveStateLink");
+    const generateShortStateLinkButton = document.querySelector("#generateShortStateLink");
+    const copyShortStateLinkButton = document.querySelector("#copyShortStateLink");
+    const saveStateStatus = document.querySelector("#saveStateStatus");
+    const printTitleSize = document.querySelector("#printTitleSize");
+    const printTitleSizeValue = document.querySelector("#printTitleSizeValue");
+    const printPageOrientation = document.querySelector("#printPageOrientation");
+    const printColumns = document.querySelector("#printColumns");
+    const printPageStyle = document.createElement("style");
+    printPageStyle.id = "printPageStyle";
+    document.head.append(printPageStyle);
+    const noteOptions = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
+    const printOrientationOptions = ["portrait", "landscape"];
+    const printColumnOptions = ["auto-fit", "1", "2", "3", "4", "5", "6", "7", "8"];
+    const printCardTitleSizes = {
+      "auto-fit": 34,
+      "1": 38,
+      "2": 38,
+      "3": 34,
+      "4": 30,
+      "5": 25,
+      "6": 22,
+      "7": 19,
+      "8": 17
+    };
+    const tunings = [
+      { id: "standard", label: "Afinacion estandar", shortLabel: "Estandar", strings: ["E", "A", "D", "G", "B", "e"] },
+      { id: "drop-d", label: "Drop D", shortLabel: "Drop D", strings: ["D", "A", "D", "G", "B", "e"] },
+      { id: "half-step", label: "Medio tono abajo", shortLabel: "Eb standard", strings: ["Eb", "Ab", "Db", "Gb", "Bb", "eb"] },
+      { id: "dadgad", label: "DADGAD", shortLabel: "DADGAD", strings: ["D", "A", "D", "G", "A", "D"] },
+      { id: "open-g", label: "Open G", shortLabel: "Open G", strings: ["D", "G", "D", "G", "B", "D"] },
+      { id: "open-d", label: "Open D", shortLabel: "Open D", strings: ["D", "A", "D", "F#", "A", "D"] },
+      { id: "open-e", label: "Open E", shortLabel: "Open E", strings: ["E", "B", "E", "G#", "B", "E"] },
+      { id: "open-c", label: "Open C", shortLabel: "Open C", strings: ["C", "G", "C", "G", "C", "E"] },
+      { id: "baritone", label: "Baritona", shortLabel: "Baritona", strings: ["B", "E", "A", "D", "F#", "B"] },
+      { id: "custom", label: "Afinacion custom", shortLabel: "Custom", strings: [] }
+    ];
+    const defaultCustomTuning = ["E", "A", "D", "G", "B", "E"];
+    const customTuningLabels = ["6a", "5a", "4a", "3a", "2a", "1a"];
+    const fingerings = new Map();
+    const rootMarkers = new Map();
+    let stringNames = ["E", "A", "D", "G", "B", "e"];
+    let tuningId = localStorage.getItem("tuningId") || "standard";
+    let customStringNames = loadCustomTuning();
+    let orientation = "vertical";
+    let controlsCollapsed = localStorage.getItem("controlsCollapsed") === "true";
+    let generatedShortUrl = "";
+    let svgMetaId = 0;
+
+    function parseChordLine(value, lineNumber) {
+      const trimmed = value.trim().replace(/\s+/g, " ");
+      const match = trimmed.match(/^(.+?)\s+([xX0-9()]+)$/);
+
+      if (!match) {
+        return {
+          ok: false,
+          message: `Linea ${lineNumber}: usa formato Nombre x02210 o marca tonica con parentesis, por ejemplo G (3)20003.`
+        };
+      }
+
+      const name = match[1].trim();
+      const token = match[2];
+      const roots = [];
+      let shape = "";
+      let offset = 0;
+
+      while (offset < token.length) {
+        const char = token[offset];
+
+        if (char === "(") {
+          const rootMatch = token.slice(offset).match(/^\(([0-9])\)/);
+          if (!rootMatch) {
+            return {
+              ok: false,
+              message: `Linea ${lineNumber}: la tonica entre parentesis debe ser un numero, por ejemplo (3).`
+            };
+          }
+
+          shape += rootMatch[1];
+          roots.push(true);
+          offset += rootMatch[0].length;
+        } else if (/^[xX0-9]$/.test(char)) {
+          shape += char.toLowerCase();
+          roots.push(false);
+          offset += 1;
+        } else {
+          return {
+            ok: false,
+            message: `Linea ${lineNumber}: usa solo x, numeros o parentesis para la tonica.`
+          };
+        }
+      }
+
+      if (shape.length !== 6) {
+        return {
+          ok: false,
+          message: `Linea ${lineNumber}: la forma debe tener seis posiciones.`
+        };
+      }
+
+      const positions = shape.split("").map((char) => char === "x" ? "x" : Number(char));
+      const numericFrets = positions.filter((position) => typeof position === "number");
+      const playedFrets = numericFrets.filter((position) => position > 0);
+      const maxFret = Math.max(3, ...playedFrets, 0);
+
+      return { ok: true, name, shape, positions, roots, maxFret };
+    }
+
+    function parseChordList(value) {
+      const chords = [];
+      const errors = [];
+      const lines = value.split(/\r?\n/);
+
+      lines.forEach((line, index) => {
+        if (!line.trim()) {
+          return;
+        }
+
+        const parsed = parseChordLine(line, index + 1);
+        if (parsed.ok) {
+          chords.push(parsed);
+        } else {
+          errors.push(parsed.message);
+        }
+      });
+
+      if (chords.length === 0 && errors.length === 0) {
+        errors.push("Agrega al menos un acorde, por ejemplo: Dsus2 xx0230.");
+      }
+
+      return { chords, errors };
+    }
+
+    function el(name, attrs = {}) {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+      Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+      return node;
+    }
+
+    function textNode(content, attrs = {}) {
+      const node = el("text", attrs);
+      node.textContent = content;
+      return node;
+    }
+
+    function encodeState(value) {
+      const bytes = new TextEncoder().encode(JSON.stringify(value));
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    function decodeState(value) {
+      const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+      const binary = atob(padded);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return JSON.parse(new TextDecoder().decode(bytes));
+    }
+
+    function serializeState() {
+      const savedFingers = Array.from(fingerings.entries()).filter(([, fingers]) => {
+        return Array.isArray(fingers) && fingers.some(Boolean);
+      });
+      const savedRoots = Array.from(rootMarkers.entries()).filter(([, roots]) => {
+        return Array.isArray(roots);
+      });
+
+      return {
+        chords: input.value,
+        orientation,
+        tuningId,
+        customStringNames,
+        printTitle: printTitleInput.value.trim(),
+        printTitleSize: printTitleSize.value,
+        printPageOrientation: printPageOrientation.value,
+        printColumns: printColumns.value,
+        fingerings: savedFingers,
+        rootMarkers: savedRoots
+      };
+    }
+
+    function applyStateFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("state");
+
+      if (!encoded) {
+        return;
+      }
+
+      try {
+        const state = decodeState(encoded);
+        if (typeof state.chords === "string") {
+          input.value = state.chords;
+        }
+        if (state.orientation === "vertical" || state.orientation === "horizontal") {
+          orientation = state.orientation;
+        }
+        if (typeof state.tuningId === "string" && tunings.some((tuning) => tuning.id === state.tuningId)) {
+          tuningId = state.tuningId;
+        }
+        if (Array.isArray(state.customStringNames) && state.customStringNames.length === 6) {
+          customStringNames = state.customStringNames.map((note) => String(note || "E"));
+        }
+        if (typeof state.printTitle === "string" && state.printTitle.trim()) {
+          printTitleInput.value = state.printTitle;
+        }
+        if (state.printTitleSize && Number.isFinite(Number(state.printTitleSize))) {
+          printTitleSize.value = state.printTitleSize;
+        }
+        if (printOrientationOptions.includes(String(state.printPageOrientation))) {
+          printPageOrientation.value = state.printPageOrientation;
+        }
+        if (state.printColumns && printColumnOptions.includes(String(state.printColumns))) {
+          printColumns.value = state.printColumns;
+        }
+        if (Array.isArray(state.fingerings)) {
+          fingerings.clear();
+          state.fingerings.forEach(([key, fingers]) => {
+            if (typeof key === "string" && Array.isArray(fingers)) {
+              fingerings.set(key, fingers.slice(0, 6).map((finger) => String(finger || "")));
+            }
+          });
+        }
+        if (Array.isArray(state.rootMarkers)) {
+          rootMarkers.clear();
+          state.rootMarkers.forEach(([key, roots]) => {
+            if (typeof key === "string" && Array.isArray(roots)) {
+              rootMarkers.set(key, roots.slice(0, 6).map(Boolean));
+            }
+          });
+        }
+        updatePrintSettings();
+        saveStateStatus.textContent = "Valores cargados desde el enlace.";
+      } catch (error) {
+        saveStateStatus.textContent = "No pude cargar los valores del enlace.";
+        console.warn("No se pudo leer el estado de la URL.", error);
+      }
+    }
+
+    function buildStateUrl() {
+      const url = new URL(window.location.href);
+      url.searchParams.set("state", encodeState(serializeState()));
+      url.hash = "";
+      return url;
+    }
+
+    function shortenUrl(longUrl) {
+      return new Promise((resolve, reject) => {
+        const callbackName = `__chordShortUrl${Date.now()}${Math.floor(Math.random() * 10000)}`;
+        const script = document.createElement("script");
+        const timeout = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("El acortador no respondio."));
+        }, 12000);
+
+        function cleanup() {
+          window.clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
+
+        window[callbackName] = (response) => {
+          cleanup();
+          if (response?.shorturl) {
+            resolve(response.shorturl);
+            return;
+          }
+
+          reject(new Error(response?.errormessage || "No se pudo acortar el enlace."));
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("No se pudo conectar con is.gd."));
+        };
+        script.src = `https://is.gd/create.php?format=json&callback=${callbackName}&url=${encodeURIComponent(longUrl)}`;
+        document.body.append(script);
+      });
+    }
+
+    async function copyTextWithFallback(text, fallbackMessage) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        window.prompt(fallbackMessage, text);
+        return false;
+      }
+    }
+
+    async function copyStateLink() {
+      const url = buildStateUrl();
+      window.history.replaceState(null, "", url);
+
+      if (await copyTextWithFallback(url.href, "Copia el enlace guardado")) {
+        saveStateStatus.textContent = "Enlace copiado con los valores actuales.";
+      } else {
+        saveStateStatus.textContent = "Enlace listo en la barra del navegador.";
+      }
+    }
+
+    function invalidateShortLink(message = "") {
+      if (!generatedShortUrl) {
+        return;
+      }
+
+      generatedShortUrl = "";
+      copyShortStateLinkButton.disabled = true;
+      copyShortStateLinkButton.textContent = "Copiar enlace corto";
+      if (message) {
+        saveStateStatus.textContent = message;
+      }
+    }
+
+    async function generateShortStateLink() {
+      const stateSnapshot = encodeState(serializeState());
+      const url = buildStateUrl();
+      window.history.replaceState(null, "", url);
+      generatedShortUrl = "";
+      copyShortStateLinkButton.disabled = true;
+      generateShortStateLinkButton.disabled = true;
+      generateShortStateLinkButton.textContent = "Generando...";
+      saveStateStatus.textContent = "Generando enlace corto. Puede tardar unos segundos...";
+
+      try {
+        const shortUrl = await shortenUrl(url.href);
+        if (encodeState(serializeState()) !== stateSnapshot) {
+          saveStateStatus.textContent = "Cambios detectados. Genera un enlace corto nuevo para compartirlos.";
+          return;
+        }
+
+        generatedShortUrl = shortUrl;
+        copyShortStateLinkButton.disabled = false;
+        saveStateStatus.textContent = "Enlace corto listo. Ahora podes copiarlo.";
+      } catch (error) {
+        saveStateStatus.textContent = "No pude generar el enlace corto. Podes copiar el enlace guardado.";
+        console.warn("No se pudo crear el enlace corto.", error);
+      } finally {
+        generateShortStateLinkButton.disabled = false;
+        generateShortStateLinkButton.textContent = "Generar enlace corto";
+      }
+    }
+
+    async function copyGeneratedShortStateLink() {
+      if (!generatedShortUrl) {
+        copyShortStateLinkButton.disabled = true;
+        saveStateStatus.textContent = "Primero genera el enlace corto.";
+        return;
+      }
+
+      if (await copyTextWithFallback(generatedShortUrl, "Copia el enlace corto")) {
+        saveStateStatus.textContent = "Enlace corto copiado.";
+      } else {
+        saveStateStatus.textContent = "Enlace corto listo para copiar.";
+      }
+    }
+
+    function loadCustomTuning() {
+      try {
+        const stored = JSON.parse(localStorage.getItem("customTuning") || "null");
+        if (Array.isArray(stored) && stored.length === 6 && stored.every((note) => typeof note === "string")) {
+          return stored;
+        }
+      } catch (error) {
+        console.warn("No se pudo leer la afinacion custom.", error);
+      }
+
+      return [...defaultCustomTuning];
+    }
+
+    function setupTuningControls() {
+      tuningSelect.innerHTML = "";
+      tunings.forEach((tuning) => {
+        const option = document.createElement("option");
+        option.value = tuning.id;
+        option.textContent = tuning.shortLabel;
+        tuningSelect.append(option);
+      });
+
+      customTuning.innerHTML = "";
+      customTuningLabels.forEach((label, stringIndex) => {
+        const wrapper = document.createElement("label");
+        wrapper.className = "string-field";
+
+        const text = document.createElement("span");
+        text.textContent = label;
+
+        const select = document.createElement("select");
+        select.dataset.stringIndex = String(stringIndex);
+        noteOptions.forEach((note) => {
+          const option = document.createElement("option");
+          option.value = note;
+          option.textContent = note;
+          select.append(option);
+        });
+        select.value = customStringNames[stringIndex] || defaultCustomTuning[stringIndex];
+        select.addEventListener("change", () => {
+          customStringNames[stringIndex] = select.value;
+          localStorage.setItem("customTuning", JSON.stringify(customStringNames));
+          updateTuning();
+          update();
+        });
+
+        wrapper.append(text, select);
+        customTuning.append(wrapper);
+      });
+
+      if (!tunings.some((tuning) => tuning.id === tuningId)) {
+        tuningId = "standard";
+      }
+
+      tuningSelect.value = tuningId;
+      tuningSelect.addEventListener("change", () => {
+        tuningId = tuningSelect.value;
+        localStorage.setItem("tuningId", tuningId);
+        updateTuning();
+        update();
+      });
+
+      updateTuning();
+    }
+
+    function getActiveTuning() {
+      if (tuningId === "custom") {
+        return {
+          label: "Afinacion custom",
+          strings: [...customStringNames]
+        };
+      }
+
+      return tunings.find((tuning) => tuning.id === tuningId) || tunings[0];
+    }
+
+    function updateTuning() {
+      const tuning = getActiveTuning();
+      stringNames = tuning.strings;
+      customTuning.hidden = tuningId !== "custom";
+      tuningReadout.innerHTML = `${tuning.label}<br>${stringNames.join(" ")}`;
+    }
+
+    function updatePrintSettings() {
+      const pageOrientation = printOrientationOptions.includes(printPageOrientation.value)
+        ? printPageOrientation.value
+        : "portrait";
+      const columns = printColumnOptions.includes(printColumns.value) ? printColumns.value : "auto-fit";
+
+      printPageOrientation.value = pageOrientation;
+      printColumns.value = columns;
+      printSheet.style.setProperty("--print-title-size", `${printTitleSize.value}px`);
+      printSheet.style.setProperty("--print-card-min", columns === "auto-fit" ? "180px" : "0px");
+      printSheet.style.setProperty("--print-card-title-size", `${printCardTitleSizes[columns]}px`);
+      printSheet.style.setProperty("--print-columns", columns);
+      printPageStyle.textContent = `@media print { @page { size: ${pageOrientation}; margin: 12mm; } }`;
+      printTitleSizeValue.textContent = printTitleSize.value;
+      localStorage.setItem("printPageOrientation", pageOrientation);
+    }
+
+    function getChordKey(data, index) {
+      return `${index}:${data.name}:${data.shape}`;
+    }
+
+    function getFinger(data, index, stringIndex) {
+      const fingers = fingerings.get(getChordKey(data, index));
+      return fingers?.[stringIndex] || "";
+    }
+
+    function getFingerSet(data, index) {
+      return [...(fingerings.get(getChordKey(data, index)) || Array(6).fill(""))];
+    }
+
+    function getRoot(data, index, stringIndex) {
+      const key = getChordKey(data, index);
+      const roots = rootMarkers.has(key) ? rootMarkers.get(key) : data.roots;
+      return Boolean(roots?.[stringIndex]);
+    }
+
+    function getRootSet(data, index) {
+      const key = getChordKey(data, index);
+      const roots = rootMarkers.has(key) ? rootMarkers.get(key) : data.roots;
+      return [...(roots || Array(6).fill(false))];
+    }
+
+    function cycleFinger(data, index, stringIndex) {
+      const key = getChordKey(data, index);
+      const fingers = fingerings.get(key) || Array(6).fill("");
+      const current = Number(fingers[stringIndex] || 0);
+      fingers[stringIndex] = current >= 4 ? "" : String(current + 1);
+      fingerings.set(key, fingers);
+      update();
+    }
+
+    function toggleRoot(data, index, stringIndex) {
+      const key = getChordKey(data, index);
+      const roots = getRootSet(data, index);
+      roots[stringIndex] = !roots[stringIndex];
+      rootMarkers.set(key, roots);
+      update();
+    }
+
+    function drawOpenMarker(svg, data, index, stringIndex, x, y, fixedRoots) {
+      const isRoot = fixedRoots ? Boolean(fixedRoots[stringIndex]) : getRoot(data, index, stringIndex);
+      const group = el("g", {
+        class: isRoot ? "open-marker root-marker" : "open-marker",
+        tabindex: fixedRoots ? "-1" : "0",
+        role: "button",
+        "aria-label": `Cuerda ${stringNames[stringIndex]} al aire${isRoot ? ", tonica" : ""}`
+      });
+
+      if (isRoot) {
+        group.append(el("circle", { cx: x, cy: y, r: 20, class: "marker-cutout" }));
+        group.append(el("circle", { cx: x, cy: y, r: 20, class: "root-open-halo" }));
+      }
+
+      group.append(el("circle", { cx: x, cy: y, r: isRoot ? 14 : 13, class: isRoot ? "open-dot root-open-dot" : "open-dot" }));
+
+      if (!fixedRoots) {
+        group.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          toggleRoot(data, index, stringIndex);
+        });
+      }
+
+      svg.append(group);
+    }
+
+    function drawFingerMarker(svg, data, index, stringIndex, fret, x, y, fixedFingers, fixedRoots) {
+      const finger = fixedFingers ? fixedFingers[stringIndex] || "" : getFinger(data, index, stringIndex);
+      const isRoot = fixedRoots ? Boolean(fixedRoots[stringIndex]) : getRoot(data, index, stringIndex);
+      const group = el("g", {
+        class: isRoot ? "finger-marker root-marker" : "finger-marker",
+        tabindex: "0",
+        role: "button",
+        "aria-label": `Dedo cuerda ${stringNames[stringIndex]}, traste ${fret}${isRoot ? ", tonica" : ""}`
+      });
+
+      if (isRoot) {
+        group.append(el("circle", { cx: x, cy: y, r: 24, class: "marker-cutout" }));
+      }
+
+      group.append(el("circle", { cx: x, cy: y, r: 23, class: "position-dot" }));
+
+      if (finger) {
+        group.append(textNode(finger, { x, y: y + 1, class: "marker-label" }));
+      }
+
+      if (!fixedFingers) {
+        group.addEventListener("click", () => cycleFinger(data, index, stringIndex));
+        group.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          toggleRoot(data, index, stringIndex);
+        });
+        group.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            cycleFinger(data, index, stringIndex);
+          } else if (event.key.toLowerCase() === "r") {
+            event.preventDefault();
+            toggleRoot(data, index, stringIndex);
+          }
+        });
+      }
+
+      svg.append(group);
+    }
+
+    function updateButtons() {
+      verticalBtn.setAttribute("aria-pressed", String(orientation === "vertical"));
+      horizontalBtn.setAttribute("aria-pressed", String(orientation === "horizontal"));
+    }
+
+    function updatePanelToggle() {
+      app.classList.toggle("controls-collapsed", controlsCollapsed);
+      panelToggle.setAttribute("aria-expanded", String(!controlsCollapsed));
+      panelToggle.setAttribute("aria-label", controlsCollapsed ? "Mostrar controles" : "Ocultar controles");
+      panelToggle.setAttribute("title", controlsCollapsed ? "Mostrar controles" : "Ocultar controles");
+      localStorage.setItem("controlsCollapsed", String(controlsCollapsed));
+    }
+
+    function setSvgMeta(svg, data, layout, index) {
+      svgMetaId += 1;
+      const titleId = `diagramTitle${index}-${svgMetaId}`;
+      const descId = `diagramDesc${index}-${svgMetaId}`;
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-labelledby", `${titleId} ${descId}`);
+      svg.innerHTML = "";
+      svg.append(
+        el("title", { id: titleId }),
+        el("desc", { id: descId })
+      );
+      svg.querySelector("title").textContent = `Diagrama ${layout} de ${data.name}`;
+      svg.querySelector("desc").textContent = `Acorde ${data.name} con forma ${data.shape}.`;
+    }
+
+    function renderVertical(svg, data, index, fixedFingers, fixedRoots) {
+      const width = 560;
+      const height = 640;
+      const left = 88;
+      const right = 476;
+      const top = 102;
+      const bottom = 538;
+      const stringGap = (right - left) / 5;
+      const fretGap = (bottom - top) / data.maxFret;
+
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      setSvgMeta(svg, data, "vertical", index);
+
+      for (let fret = 0; fret <= data.maxFret; fret += 1) {
+        const y = top + fret * fretGap;
+        svg.append(el("line", {
+          x1: left,
+          x2: right,
+          y1: y,
+          y2: y,
+          class: fret === 0 ? "nut-line" : "fret-line"
+        }));
+
+        if (fret > 0) {
+          svg.append(textNode(String(fret), {
+            x: left - 42,
+            y: top + (fret - 0.5) * fretGap,
+            class: "fret-label"
+          }));
+        }
+      }
+
+      data.positions.forEach((position, stringIndex) => {
+        const x = left + stringIndex * stringGap;
+        svg.append(el("line", {
+          x1: x,
+          x2: x,
+          y1: top,
+          y2: bottom,
+          class: "string-line",
+          "stroke-width": String(2.2 + (5 - stringIndex) * 0.55)
+        }));
+        svg.append(textNode(stringNames[stringIndex], {
+          x,
+          y: bottom + 42,
+          class: "string-label"
+        }));
+
+        if (position === "x") {
+          drawMuted(svg, x, top - 42, "vertical");
+        } else if (position === 0) {
+          drawOpenMarker(svg, data, index, stringIndex, x, top - 42, fixedRoots);
+        } else {
+          const y = top + (position - 0.5) * fretGap;
+          drawFingerMarker(svg, data, index, stringIndex, position, x, y, fixedFingers, fixedRoots);
+        }
+      });
+    }
+
+    function renderHorizontal(svg, data, index, fixedFingers, fixedRoots) {
+      const width = 700;
+      const height = 520;
+      const left = 128;
+      const right = 616;
+      const top = 84;
+      const bottom = 410;
+      const rowOrder = [5, 4, 3, 2, 1, 0];
+      const stringGap = (bottom - top) / 5;
+      const fretGap = (right - left) / data.maxFret;
+
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      setSvgMeta(svg, data, "horizontal", index);
+
+      for (let fret = 0; fret <= data.maxFret; fret += 1) {
+        const x = left + fret * fretGap;
+        svg.append(el("line", {
+          x1: x,
+          x2: x,
+          y1: top,
+          y2: bottom,
+          class: fret === 0 ? "nut-line" : "fret-line"
+        }));
+
+        if (fret > 0) {
+          svg.append(textNode(String(fret), {
+            x: left + (fret - 0.5) * fretGap,
+            y: bottom + 45,
+            class: "fret-label"
+          }));
+        }
+      }
+
+      rowOrder.forEach((stringIndex, rowIndex) => {
+        const y = top + rowIndex * stringGap;
+        const position = data.positions[stringIndex];
+        svg.append(el("line", {
+          x1: left,
+          x2: right,
+          y1: y,
+          y2: y,
+          class: "string-line",
+          "stroke-width": String(2.2 + (5 - stringIndex) * 0.55)
+        }));
+        svg.append(textNode(stringNames[stringIndex], {
+          x: left - 46,
+          y,
+          class: "string-label"
+        }));
+
+        if (position === "x") {
+          drawMuted(svg, left - 86, y, "horizontal");
+        } else if (position === 0) {
+          drawOpenMarker(svg, data, index, stringIndex, left - 86, y, fixedRoots);
+        } else {
+          const x = left + (position - 0.5) * fretGap;
+          drawFingerMarker(svg, data, index, stringIndex, position, x, y, fixedFingers, fixedRoots);
+        }
+      });
+    }
+
+    function drawMuted(svg, x, y, mode) {
+      const size = mode === "vertical" ? 12 : 11;
+      svg.append(el("line", {
+        x1: x - size,
+        x2: x + size,
+        y1: y - size,
+        y2: y + size,
+        class: "dead-line"
+      }));
+      svg.append(el("line", {
+        x1: x + size,
+        x2: x - size,
+        y1: y - size,
+        y2: y + size,
+        class: "dead-line"
+      }));
+    }
+
+    function renderChordCard(data, index, fixedFingers, fixedRoots) {
+      const card = document.createElement("article");
+      card.className = "chord-card";
+
+      const head = document.createElement("div");
+      head.className = "chord-card-head";
+
+      const title = document.createElement("h3");
+      title.textContent = data.name;
+
+      const code = document.createElement("code");
+      code.textContent = data.shape;
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.classList.add("chord-diagram");
+
+      head.append(title, code);
+      card.append(head, svg);
+
+      if (orientation === "vertical") {
+        renderVertical(svg, data, index, fixedFingers, fixedRoots);
+      } else {
+        renderHorizontal(svg, data, index, fixedFingers, fixedRoots);
+      }
+
+      return card;
+    }
+
+    function setPrintMeta(tuning) {
+      printMeta.textContent = "";
+      printMeta.append(
+        document.createTextNode(tuning.label),
+        document.createElement("br"),
+        document.createTextNode(stringNames.join(" "))
+      );
+    }
+
+    function openPrintView() {
+      const parsed = parseChordList(input.value);
+
+      if (parsed.errors.length || parsed.chords.length === 0) {
+        error.textContent = parsed.errors.join(" ") || "Agrega al menos un acorde antes de imprimir.";
+        return;
+      }
+
+      const title = printTitleInput.value.trim() || "Mis acordes";
+      localStorage.setItem("printTitle", title);
+      printTitle.textContent = title;
+      updatePrintSettings();
+      setPrintMeta(getActiveTuning());
+      printGrid.innerHTML = "";
+      parsed.chords.forEach((chord, index) => {
+        printGrid.append(renderChordCard(chord, index, getFingerSet(chord, index), getRootSet(chord, index)));
+      });
+      printView.hidden = false;
+      document.body.style.overflow = "hidden";
+      closePrintView.focus();
+    }
+
+    function closePrintSheet() {
+      printView.hidden = true;
+      document.body.style.overflow = "";
+      buildPrintView.focus();
+    }
+
+    function update() {
+      invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
+      const parsed = parseChordList(input.value);
+      const chords = parsed.chords;
+
+      error.textContent = parsed.errors.join(" ");
+      diagramGrid.innerHTML = "";
+
+      chords.forEach((chord, index) => {
+        diagramGrid.append(renderChordCard(chord, index));
+      });
+
+      stageName.textContent = "Diagramas";
+    }
+
+    verticalBtn.addEventListener("click", () => {
+      orientation = "vertical";
+      updateButtons();
+      update();
+    });
+
+    horizontalBtn.addEventListener("click", () => {
+      orientation = "horizontal";
+      updateButtons();
+      update();
+    });
+
+    input.addEventListener("input", update);
+    printTitleInput.addEventListener("input", () => {
+      invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
+    });
+
+    printTitleInput.value = localStorage.getItem("printTitle") || printTitleInput.value;
+    if (printOrientationOptions.includes(localStorage.getItem("printPageOrientation"))) {
+      printPageOrientation.value = localStorage.getItem("printPageOrientation");
+    }
+    applyStateFromUrl();
+    updatePrintSettings();
+
+    buildPrintView.addEventListener("click", openPrintView);
+
+    saveStateLink.addEventListener("click", () => {
+      copyStateLink();
+    });
+
+    generateShortStateLinkButton.addEventListener("click", () => {
+      generateShortStateLink();
+    });
+
+    copyShortStateLinkButton.addEventListener("click", () => {
+      copyGeneratedShortStateLink();
+    });
+
+    [printTitleSize].forEach((control) => {
+      control.addEventListener("input", () => {
+        updatePrintSettings();
+        invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
+      });
+      control.addEventListener("change", () => {
+        updatePrintSettings();
+        invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
+      });
+    });
+
+    printPageOrientation.addEventListener("change", () => {
+      updatePrintSettings();
+      invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
+    });
+    printColumns.addEventListener("change", () => {
+      updatePrintSettings();
+      invalidateShortLink("Cambios detectados. Genera un enlace corto nuevo para compartirlos.");
+    });
+
+    closePrintView.addEventListener("click", closePrintSheet);
+
+    printPage.addEventListener("click", () => {
+      window.print();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !printView.hidden) {
+        closePrintSheet();
+      }
+    });
+
+    panelToggle.addEventListener("click", () => {
+      controlsCollapsed = !controlsCollapsed;
+      updatePanelToggle();
+    });
+
+    document.querySelectorAll("[data-example]").forEach((button) => {
+      button.addEventListener("click", () => {
+        input.value = button.dataset.example;
+        update();
+      });
+    });
+
+    updateButtons();
+    setupTuningControls();
+    updatePanelToggle();
+    update();
+  </script>
+</body>
+</html>
+
